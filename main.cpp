@@ -41,7 +41,7 @@ int get_terminal_width() {
 	return w.ws_col;
 }
 
-int run_external_cmd(std::vector<std::string> args) {
+int run_external_cmd(std::vector<std::string> args, bool save_to_history) {
 	if(args.empty()) return 0;
 
 	const char* home = getenv("HOME");
@@ -68,6 +68,11 @@ int run_external_cmd(std::vector<std::string> args) {
 		int status;
 		waitpid(pid, &status, 0);
 		WEXITSTATUS(status);
+	}
+
+	if(save_to_history) {
+		io::write_to_file(".slash_history", io::join(args, " "));
+		io::write_to_file(".slash_history", "\n");
 	}
 }
 
@@ -117,7 +122,7 @@ void execute_startup_commands() {
 	for(auto& cmd : cmds) {
 		std::string processed_cmd = interpret_escapes(cmd);
 		std::vector<std::string> args = io::split(processed_cmd, ' ');
-		run_external_cmd(args);
+		run_external_cmd(args, false);
 	}
 
 	close(fd);
@@ -126,6 +131,7 @@ void execute_startup_commands() {
 std::string read_input() {
 	std::string buffer;
 	int char_pos = 0;
+	int command_num = 0;
 	char c;
 
 	bool all_text_selected = false;
@@ -153,10 +159,27 @@ std::string read_input() {
 			if(seq[0] == '[') {
 				switch(seq[1]) {
 					case 'A': {  // Up
-						break; // later
+						std::string content = io::read_file(".slash_history");
+						if(content.empty()) { io::print("\a"); break; }
+
+						auto lines = io::split(content, '\n');
+						if (command_num < lines.size()) {
+							buffer = lines[lines.size() - 1 - command_num];
+							command_num++;
+						} else {
+							command_num = 0;
+						}
+						buffer.clear();
+						io::print("\r\x1b[K");
+						io::print(gray);
+						io::print("> ");
+						io::print(reset);
+						io::print(lines[command_num]);
+						buffer = lines[command_num];
+						command_num++;
 					};
 					case 'B': { // Down
-						break;
+						break; // later
 					};
 					case 'C': { // Right
 						if(char_pos < buffer.size()) {
@@ -217,6 +240,8 @@ int main() {
 
 			std::vector<std::string> args = io::split(input, ' '); // PLEASE DON'T KILL ME FOR THIS I PROMISE I WILL CHANGE IT
 
+			if(args.empty()) continue;
+
 			if(args[0] == "cd") {
 				if(chdir(args[1].c_str()) != 0) {
 					perror("Failed to change directory");
@@ -225,7 +250,7 @@ int main() {
 				io::print("Thank you for choosing Slash! ;)\n");
 				exit(0);
 			} else {
-				run_external_cmd(args);
+				run_external_cmd(args, true);
 			}
 	}
 }

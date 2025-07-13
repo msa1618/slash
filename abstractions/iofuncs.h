@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <fcntl.h>
 
 namespace io {
 	void print(std::string text);
@@ -14,6 +15,9 @@ namespace io {
 	std::string join(std::vector<std::string> vec, std::string joiner);
 	std::vector<std::string> split(const std::string &s, char delimiter);
 	std::string center(std::string text, int width);
+
+	std::string read_file(std::string filepath);
+	void write_to_file(std::string filepath, std::string content);
 
 	template <typename T>
 	bool vecContains(std::vector<T> vec, T target) {
