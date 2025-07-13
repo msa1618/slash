@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 #include <fcntl.h>
 #include <iostream>
 #include <cstring>
@@ -11,6 +12,27 @@
 #include "abstractions/definitions.h"
 #include "abstractions/iofuncs.h"
 
+termios orig;
+
+#pragma region termios_funcs
+
+void disable_raw_mode() { tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig); }
+
+void enable_raw_mode() {
+	tcgetattr(STDIN_FILENO, &orig);
+	atexit(disable_raw_mode);
+
+	termios raw = orig;
+	raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+	raw.c_lflag &= ~ICRNL;
+	raw.c_lflag &= ~(OPOST);
+	raw.c_cc[VMIN] = 1;
+	raw.c_cc[VTIME] = 0;
+
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
+#pragma endregion
 #pragma region helpers
 
 int get_terminal_width() {
@@ -101,13 +123,84 @@ void execute_startup_commands() {
 	close(fd);
 }
 
+std::string read_input() {
+	std::string buffer;
+	int char_pos = 0;
+	char c;
+
+	bool all_text_selected = false;
+
+	while(true) {
+		if(read(STDIN, &c, 1) != 1) continue; // Skip everything else and try again if no input was read
+
+		if(c == '\r' || c == '\n') {
+			io::print("\n");
+			break;
+		}
+
+		if((c == 127 || c == 8) && !buffer.empty()) { // Backspace
+			buffer.erase(buffer.begin() + char_pos - 1);
+			io::print("\b \b");
+			char_pos--;
+		}
+
+		if(c == 1) { all_text_selected = true; } // Ctrl + A
+		if(c == 27) {
+			char seq[2];
+			if(read(STDIN, &seq[0], 1) != 1) continue;
+			if(read(STDIN, &seq[1], 1) != 1) continue;
+
+			if(seq[0] == '[') {
+				switch(seq[1]) {
+					case 'A': {  // Up
+						break; // later
+					};
+					case 'B': { // Down
+						break;
+					};
+					case 'C': { // Right
+						if(char_pos < buffer.size()) {
+							io::print("\x1b[C");
+							char_pos++;
+						}
+						break;
+					}
+					case 'D': { // Left
+						if(char_pos > 0) {
+							io::print("\x1b[D");
+							char_pos--;
+						}
+						break;
+					}
+				}
+			}
+		}
+
+		if(isprint(c)) {
+			buffer.insert(buffer.begin() + char_pos, c); // Insert at current position
+			char_pos++;
+
+			// Save cursor position
+			io::print("\x1b[s");
+			io::print(buffer.substr(char_pos - 1));
+			io::print(" "); // Overwrite old character if buffer was longer before
+
+			// Restore cursor to original insert point
+			io::print("\x1b[u\x1b[C");
+		}
+	}
+
+	return buffer;
+}
+
 #pragma endregion
 
 int main() {
 	execute_startup_commands();
+	enable_raw_mode();
 
 	while(true) {
-		char *cwd = getcwd(NULL, 0);
+		char *cwd = getcwd(nullptr, 0);
 		if (!cwd) {
 			perror("getcwd failed");
 			return 1;
@@ -116,43 +209,23 @@ int main() {
 		io::print("\x1b[1m\x1b[38;5;220m");
 		io::print(cwd);
 		io::print(reset);
+		io::print("\n");
 		io::print(gray);
 		io::print("> ");
 		io::print(reset);
+		std::string input = read_input();
 
-		char buffer[256];
-		ssize_t bytesRead = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
+			std::vector<std::string> args = io::split(input, ' '); // PLEASE DON'T KILL ME FOR THIS I PROMISE I WILL CHANGE IT
 
-		if(bytesRead > 0) {
-			buffer[bytesRead] = '\0';
-
-			std::string input(buffer);
-
-			if (!input.empty() && input.back() == '\n') {
-				input.pop_back();
-			}
-
-			std::istringstream iss(input);
-			std::vector<std::string> args;
-			std::string arg;
-			while (iss >> arg) {
-				args.push_back(arg);
-			}
-
-			if(args.empty()) {
-				continue;
-			}
 			if(args[0] == "cd") {
 				if(chdir(args[1].c_str()) != 0) {
 					perror("Failed to change directory");
 				}
 			} else if(args[0] == "exit") {
 				io::print("Thank you for choosing Slash! ;)\n");
-				return 0;
+				exit(0);
 			} else {
 				run_external_cmd(args);
 			}
-
-		}
 	}
 }
