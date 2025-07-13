@@ -1,5 +1,6 @@
 #include "../command.h"
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/definitions.h"
 #include <iomanip>
 #include <iostream>
 
@@ -11,7 +12,7 @@ class Ansi : public Command {
 		for(int i = 30; i < 37; i++) {
 			std::cout << "\x1b[" << i << "m";
 			std::cout << std::setw(5) << std::setfill(' ') << i;
-			std::cout << "\x1b[0m";
+			std::cout << reset;
 		}
 
 		std::cout << "\n";
@@ -19,14 +20,14 @@ class Ansi : public Command {
 		for(int i = 40; i < 47; i++) {
 			std::cout << "\x1b[" << i << "m";
 			std::cout << std::setw(5) << std::setfill(' ') << i;
-			std::cout << "\x1b[0m";
+			std::cout << reset;
 		}
 
 		std::cout << "\n\n256 color palette\n-----------------\n";
 		for (int i = 0; i < 256; ++i) {
 			std::cout << "\x1b[48;5;" << i << "m";
 			std::cout << std::setw(5) << std::setfill(' ') << i;
-			std::cout << "\x1b[0m";
+			std::cout << reset;
 
 			if ((i + 1) % 16 == 0) std::cout << "\n";
 		}

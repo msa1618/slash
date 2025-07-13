@@ -1,4 +1,5 @@
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/definitions.h"
 #include "../command.h"
 
 #include <sys/types.h>
@@ -67,19 +68,22 @@ class NetInfo : public Command {
 		io::print("---------------------\n");
 
 		io::print("IP Address: ");
-		io::print("\x1b[38;5;4m");
+		io::print(blue);
 		io::print(ipv4_addr);
-		io::print("\x1b[0m\n");
+		io::print(reset);
+		io::print("\n");
 
 		io::print("Netmask: ");
-		io::print("\x1b[38;5;4m");
+		io::print(blue);
 		io::print(netmask);
-		io::print("\x1b[0m\n");
+		io::print(reset);
+		io::print("\n");
 
 		io::print("SSH Connection String: ");
-		io::print("\x1b[38;5;4m");
+		io::print(blue);
 		io::print(ssh_cs);
-		io::print("\x1b[0m");
+		io::print(reset);
+		io::print("\n");
 
 		return 0;
 	}

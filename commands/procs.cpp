@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/definitions.h"
 #include "../command.h"
 
 #include <sys/sysinfo.h>
@@ -20,7 +21,9 @@ class Procs : public Command {
 
 		char buffer[512];
 		ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
-		if(bytesRead == -1) { perror("\x1b[1m\x1b[31merror\x1b[0m"); return -1; }
+		if(bytesRead == -1) {
+			perror("\x1b[1m\x1b[31merror\x1b[0m"); return -1;
+		}
 
 		buffer[bytesRead] = '\0';
 
@@ -105,13 +108,13 @@ class Procs : public Command {
 			io::print(pid);
 			io::print(" | ");
 			if(isDaemon(pid_int)) {
-				io::print("\x1b[38;5;202m");
+				io::print(orange);
 				io::print(name);
-				io::print("\x1b[0m");
+				io::print(reset);
 			} else {
-				io::print("\x1b[38;5;27m");
+				io::print(blue);
 				io::print(name);
-				io::print("\x1b[0m");
+				io::print(reset);
 			}
 
 			io::print("\n");

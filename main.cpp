@@ -1,31 +1,22 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/ioctl.h>
-#include <signal.h>
 #include <fcntl.h>
 #include <iostream>
 #include <cstring>
 #include <unordered_map>
 #include <sstream>
 #include <functional>
+#include <cstring>
 #include "abstractions/definitions.h"
 #include "abstractions/iofuncs.h"
+
+#pragma region helpers
 
 int get_terminal_width() {
 	struct winsize w;
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	return w.ws_col;
-}
-
-void print_right(std::string text) {
-	int width = get_terminal_width();
-
-	// std::max makes sure the column number is not less than one
-	int column = std::max(1, width - static_cast<int>(text.size() + 1));
-
-	io::print("\x1b[");
-	io::print(std::to_string(column).c_str());
-	io::print("G");
 }
 
 int run_external_cmd(std::vector<std::string> args) {
@@ -47,7 +38,7 @@ int run_external_cmd(std::vector<std::string> args) {
 		argv.push_back(nullptr);
 
 		execvp(argv[0], argv.data());
-		// execvp() only returns if it fails, thats why no conditional
+		// execvp() only returns if it fails, that's why no conditional
 		perror(argv[0]);
 		return -1;
 	}
@@ -56,18 +47,38 @@ int run_external_cmd(std::vector<std::string> args) {
 		waitpid(pid, &status, 0);
 		WEXITSTATUS(status);
 	}
-
 }
 
-int main() {
-	std::string command;
-	std::unordered_map<std::string, std::function<int(std::vector<const char*>)>> commands;
+std::string interpret_escapes(const std::string& input) {
+	std::string result;
+	for (size_t i = 0; i < input.size(); ++i) {
+		if (input[i] == '\\' && i + 1 < input.size()) {
+			char next = input[i + 1];
+			if (next == 'n') {
+				result += '\n';
+				++i;
+			} else if (next == 'x' && i + 3 < input.size()) {
+				std::string hex_str = input.substr(i + 2, 2);
+				char ch = (char)std::stoi(hex_str, nullptr, 16);
+				result += ch;
+				i += 3;
+			} else {
+				result += next;
+				++i;
+			}
+		} else {
+			result += input[i];
+		}
+	}
+	return result;
+}
 
+void execute_startup_commands() {
 	int fd = open(".slash_startup_commands", O_RDONLY);
 	if(fd == -1) {
 		perror("slash startup");
 		close(fd);
-		return -1;
+		exit(-1);
 	}
 
 	char buffer[1024];
@@ -75,18 +86,25 @@ int main() {
 	if(bytesRead < 0) {
 		perror("slash startup");
 		close(fd);
-		return -1;
+		exit(-1);
 	}
 
 	buffer[bytesRead] = '\0';
 
 	std::vector<std::string> cmds = io::split(std::string(buffer), '\n');
 	for(auto& cmd : cmds) {
-		std::vector<std::string> args = io::split(cmd, ' ');
+		std::string processed_cmd = interpret_escapes(cmd);
+		std::vector<std::string> args = io::split(processed_cmd, ' ');
 		run_external_cmd(args);
 	}
 
 	close(fd);
+}
+
+#pragma endregion
+
+int main() {
+	execute_startup_commands();
 
 	while(true) {
 		char *cwd = getcwd(NULL, 0);
@@ -95,14 +113,12 @@ int main() {
 			return 1;
 		}
 
-
 		io::print("\x1b[1m\x1b[38;5;220m");
 		io::print(cwd);
-		io::print("\x1b[0m\n");
-		print_right("test");
-		io::print("\x1b[38;5;237m");
+		io::print(reset);
+		io::print(gray);
 		io::print("> ");
-		io::print("\x1b[0m");
+		io::print(reset);
 
 		char buffer[256];
 		ssize_t bytesRead = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);

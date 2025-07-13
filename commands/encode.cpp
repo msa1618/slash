@@ -52,7 +52,11 @@ class Encode : public Command {
 
       for(auto& arg : args) {
         if(arg.starts_with('-') && !io::vecContains(validArgs, arg)) {
-          io::print_err("\x1b[1m\x1b[31merror:\x1b[0m bad arguments\n");
+					io::print_err(bold);
+					io::print_err(red);
+          io::print_err("error: ");
+					io::print_err(reset);
+					io::print_err("bad arguments\n");
           return -1;
         }
 

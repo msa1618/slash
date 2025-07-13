@@ -1,9 +1,11 @@
 #include <sstream>
 #include <math.h>
 #include "iofuncs.h"
+#include <unistd.h>
+#include <cstring>
 
 void io::print(std::string text) {
-	write(STDOUT, text.c_str(), strlen(text.c_str()));
+	write(STDOUT, text.c_str(), text.length());
 }
 
 void io::print_err(const char *text) {
