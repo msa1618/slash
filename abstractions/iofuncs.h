@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace io {
-	void print(const char* text);
+	void print(std::string text);
 	void print_err(const char* text);
 
 	std::string join(std::vector<std::string> vec, std::string joiner);

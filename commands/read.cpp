@@ -66,7 +66,7 @@ class Read : public Command {
 				perror("read failed");
 			}
 
-			io::print(io::join(data, "").c_str());
+			io::print(io::join(data, ""));
 			io::print("\n");
 
 			close(fd);

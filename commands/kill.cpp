@@ -19,7 +19,7 @@ class Kill : public Command {
             pid = std::stoi(args[0]);
         } catch (const std::exception& e) {
             io::print("Invalid PID: ");
-            io::print(args[0].c_str());
+            io::print(args[0]);
             io::print("\n");
             return -1;
         }

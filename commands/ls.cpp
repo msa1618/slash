@@ -81,11 +81,11 @@ class Ls : public Command {
 				name.resize(longest_name_length, ' ');
 				type.resize(6, ' ');
 
-				io::print(num.c_str());
+				io::print(num);
 				io::print(" | ");
-				io::print(name.c_str());
+				io::print(name);
 				io::print(" | ");
-				io::print(type.c_str());
+				io::print(type);
 				io::print("| \n");
 
 			}

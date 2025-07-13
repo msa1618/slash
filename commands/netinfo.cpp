@@ -68,17 +68,17 @@ class NetInfo : public Command {
 
 		io::print("IP Address: ");
 		io::print("\x1b[38;5;4m");
-		io::print(ipv4_addr.c_str());
+		io::print(ipv4_addr);
 		io::print("\x1b[0m\n");
 
 		io::print("Netmask: ");
 		io::print("\x1b[38;5;4m");
-		io::print(netmask.c_str());
+		io::print(netmask);
 		io::print("\x1b[0m\n");
 
 		io::print("SSH Connection String: ");
 		io::print("\x1b[38;5;4m");
-		io::print(ssh_cs.c_str());
+		io::print(ssh_cs);
 		io::print("\x1b[0m");
 
 		return 0;

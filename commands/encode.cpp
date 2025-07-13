@@ -69,7 +69,7 @@ class Encode : public Command {
       }
 
       if(use_base64 && !is_file) {
-        io::print(to_base64(text_to_encode).c_str());
+        io::print(to_base64(text_to_encode));
       } else if(use_base64 && is_file) {
         int fd = open(filepath.c_str(), O_RDONLY);
         if(fd == -1) { perror("Failed to open file"); return -1; }
@@ -84,7 +84,7 @@ class Encode : public Command {
         buffer[bytesRead] = '\0';
 
         std::string content = std::string(buffer);
-        io::print(to_base64(content).c_str());
+        io::print(to_base64(content));
       }
 
       io::print("\n");

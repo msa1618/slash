@@ -5,4 +5,6 @@
 #define STDERR STDERR_FILENO
 #define STDIN STDIN_FILENO
 
+constexpr
+
 #endif //AMBER_DEFINITIONS_H

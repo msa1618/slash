@@ -102,15 +102,15 @@ class Procs : public Command {
 			pid.resize(longest_pid_l, ' ');
 			name.resize(longest_name_l, ' ');
 
-			io::print(pid.c_str());
+			io::print(pid);
 			io::print(" | ");
 			if(isDaemon(pid_int)) {
 				io::print("\x1b[38;5;202m");
-				io::print(name.c_str());
+				io::print(name);
 				io::print("\x1b[0m");
 			} else {
 				io::print("\x1b[38;5;27m");
-				io::print(name.c_str());
+				io::print(name);
 				io::print("\x1b[0m");
 			}
 

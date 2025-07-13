@@ -25,7 +25,7 @@ class Mkf : public Command {
             }
 
             io::print("Successfully created ");
-            io::print(name.c_str());
+            io::print(name);
 
             return 0;
         }

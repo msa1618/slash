@@ -31,7 +31,7 @@ class Del : public Command {
 
 			if(prompt) {
 				io::print("Are you sure you want to delete ");
-				io::print(arg.c_str());
+				io::print(arg);
 				io::print("? (y/n)");
 
 				char buffer[3];

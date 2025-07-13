@@ -2,8 +2,8 @@
 #include <math.h>
 #include "iofuncs.h"
 
-void io::print(const char *text) {
-	write(STDOUT, text, strlen(text));
+void io::print(std::string text) {
+	write(STDOUT, text.c_str(), strlen(text.c_str()));
 }
 
 void io::print_err(const char *text) {
