@@ -19,10 +19,19 @@ namespace io {
 	std::string read_file(std::string filepath);
 	void write_to_file(std::string filepath, std::string content);
 
+	template <typename T, typename U>
+	bool vecContains(std::vector<T> vec, U target) { // For string vectors and string literals, which are interpreted as const char*
+		for(auto& elm : vec) {
+		if(elm == target) return true;
+		}
+
+		return false;
+	};
+
 	template <typename T>
 	bool vecContains(std::vector<T> vec, T target) {
 		for(auto& elm : vec) {
-		if(elm == target) return true;
+			if(elm == target) return true;
 		}
 
 		return false;
