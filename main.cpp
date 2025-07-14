@@ -205,7 +205,9 @@ std::string read_input() {
 
 			// Save cursor position
 			io::print("\x1b[s");
-			io::print(buffer.substr(char_pos - 1));
+			if(char_pos > 0) {
+				io::print(buffer.substr(char_pos - 1));
+			}
 			io::print(" "); // Overwrite old character if buffer was longer before
 
 			// Restore cursor to original insert point
