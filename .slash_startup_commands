@@ -1,1 +1,1 @@
-echo Thank you for choosing \x1b[226mslash!\x1b[0m Please note that slash is in its alpha stage.\nIf you find any bug, please raise it up on https://github.com/msa1618/slash/issues.\nIt will be fixed on the same day.
+echo Thank you for choosing \x1b[1m\x1b[38;5;226mslash!\x1b[0m Please note that slash is in its alpha stage.\nIf you find any bug, please raise it up on \x1b[34mhttps://github.com/msa1618/slash/issues.\x1b[0m\nIt will be fixed on the same day.
