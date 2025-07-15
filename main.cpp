@@ -145,9 +145,11 @@ std::string read_input() {
 		}
 
 		if((c == 127 || c == 8) && !buffer.empty()) { // Backspace
-			buffer.erase(buffer.begin() + char_pos - 1);
-			io::print("\b \b");
-			char_pos--;
+			if(char_pos > 0) {
+				buffer.erase(buffer.begin() + char_pos - 1);
+				io::print("\b \b");
+				char_pos--;
+			}
 		}
 
 		if(c == 1) { all_text_selected = true; } // Ctrl + A
