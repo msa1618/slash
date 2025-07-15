@@ -33,9 +33,9 @@ class Ansi : public Command {
 		}
 
 		std::cout << "\n\nANSI formatting options\n-----------------------\n";
-		std::cout << "\033[0m[0] This is normal text.\033[0m\n";
-		std::cout << "\033[1m[1] This is bold text.\033[0m\n";
-		std::cout << "\033[2m[2] This is dim text.\033[0m\n";
+		std::cout << reset << "[0] This is normal text.\033[0m\n";
+		std::cout << bold << "[1] This is bold text.\033[0m\n";
+		std::cout <<  "\033[2m[2] This is dim text.\033[0m\n";
 		std::cout << "\033[3m[3] This is italic text.\033[0m\n";
 		std::cout << "\033[4m[4] This is underlined text.\033[0m\n";
 		std::cout << "\033[5m[5] This is blinking text.\033[0m\n";

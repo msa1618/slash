@@ -22,9 +22,14 @@ class Ascii : public Command {
 			bool use_oct = false;
 
 			for(auto& arg : args) {
+				bool contains_bad_args = false;
 				if(!io::vecContains(validArgs, arg)) {
-					// TODO: ykw to do
-					return -1;
+					std::stringstream error_msg;
+					error_msg << bold << red << "error: " << reset << "bad argument: " << arg;
+					contains_bad_args = true;
+				}
+				if(arg == args[args.size()] && contains_bad_args) {
+					return -1; // Printed out all bad arguments and exited with an error code
 				}
 
 				if((arg == "-h" || arg == "--hexadecimal") && !use_oct) {
