@@ -23,7 +23,7 @@ void enable_raw_mode() {
 	atexit(disable_raw_mode);
 
 	termios raw = orig;
-	raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+	raw.c_lflag &= ~(ECHO | ICANON);
 	raw.c_lflag &= ~ICRNL;
 	raw.c_lflag &= ~(OPOST);
 	raw.c_cc[VMIN] = 1;
@@ -47,6 +47,11 @@ int run_external_cmd(std::vector<std::string> args, bool save_to_history) {
 	const char* home = getenv("HOME");
 	std::string util_path = std::string(home) + "/slash-utils/" + args[0];
 
+	if(save_to_history) {
+		io::write_to_file(".slash_history", io::join(args, " "));
+		io::write_to_file(".slash_history", "\n");
+	}
+
 	if(access(util_path.c_str(), X_OK) == 0) {
 		args[0] = util_path;
 	}
@@ -68,11 +73,6 @@ int run_external_cmd(std::vector<std::string> args, bool save_to_history) {
 		int status;
 		waitpid(pid, &status, 0);
 		WEXITSTATUS(status);
-	}
-
-	if(save_to_history) {
-		io::write_to_file(".slash_history", io::join(args, " "));
-		io::write_to_file(".slash_history", "\n");
 	}
 }
 
@@ -179,10 +179,11 @@ std::string read_input() {
 						io::print(lines[command_num]);
 						buffer = lines[command_num];
 						command_num++;
-					};
+						break;
+					}
 					case 'B': { // Down
 						break; // later
-					};
+					}
 					case 'C': { // Right
 						if(char_pos < buffer.size()) {
 							io::print("\x1b[C");
@@ -222,7 +223,20 @@ std::string read_input() {
 
 #pragma endregion
 
-int main() {
+int main(int argc, char* argv[]) {
+	if(argc > 1) {
+		std::vector<std::string> args;
+		args.reserve(argc - 1);
+
+		for(int i = 1; i < argc; i++) {
+			args.emplace_back(argv[i]);
+		}
+
+		run_external_cmd(args, true);
+		return 0;
+	}
+
+	signal(SIGINT, SIG_IGN);
 	execute_startup_commands();
 	enable_raw_mode();
 
@@ -242,19 +256,23 @@ int main() {
 		io::print(reset);
 		std::string input = read_input();
 
-			std::vector<std::string> args = io::split(input, ' '); // PLEASE DON'T KILL ME FOR THIS I PROMISE I WILL CHANGE IT
+		std::vector<std::string> args = io::split(input, ' '); // PLEASE DON'T KILL ME FOR THIS I PROMISE I WILL CHANGE IT
 
-			if(args.empty()) continue;
+		if(args.empty()) continue;
 
-			if(args[0] == "cd") {
-				if(chdir(args[1].c_str()) != 0) {
-					perror("Failed to change directory");
-				}
-			} else if(args[0] == "exit") {
-				io::print("Thank you for choosing Slash! ;)\n");
-				exit(0);
-			} else {
-				run_external_cmd(args, true);
+		if(args[0] == "cd") {
+			if(chdir(args[1].c_str()) != 0) {
+				perror("Failed to change directory");
 			}
+		} else if(args[0] == "exit") {
+			io::print("Thank you for choosing Slash! ;)\n");
+			disable_raw_mode();
+			break;
+		} else {
+			run_external_cmd(args, true);
+			tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig);
+		}
 	}
+
+	return 0;
 }
