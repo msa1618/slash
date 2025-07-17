@@ -7,6 +7,20 @@
 #include "abstractions/info.h"
 
 int main(int argc, char* argv[]) {
+	if(argc > 1) {
+		std::vector<std::string> args;
+		args.reserve(argc - 1);
+
+		for(int i = 1; i < argc; i++) {
+			args.emplace_back(argv[i]);
+		}
+
+		args = parse_arguments(io::join(args, " "));
+
+		execute(args, true);
+		return 0;
+	}
+
 	enable_raw_mode();
 	execute_startup_commands();
 
