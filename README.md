@@ -1,7 +1,11 @@
-# Slash is in its first stages of development
+# Slash is in Beta!
+All the basics of a shell were added, and finished on 17 June 2025. Slash is not in Alpha anymore. This means:
+1. Slash is almost eligible to become a legitimate shell
+2. It's no longer plagued with errors
+3. You can (almost) use Slash like any other shell
 
 ## The Slash Philosophy
-Every Slash utility has to follow a unified philosophy:
+Every Slash utility shas to follow a unified philosophy:
 1. Errors and notices should be color coded
 2. The utility must be vibrant, but not garnish. It can follow a theme, or a color set. ANSI color codes should not be written raw and should be decalred in a header file for all to be used. If possible, let it comply with the current Slash theme set. (coming soon)
 3. The utility must fulfill its purpose very well. It should be simple but feature rich at the same time.
