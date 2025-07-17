@@ -1,19 +1,39 @@
-cmake_minimum_required(VERSION 3.22.1)
-project(Slash)
+cmake_minimum_required(VERSION 3.16)
+project(slash)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(Slash main.cpp
-        abstractions/definitions.h
-        abstractions/iofuncs.h
-        abstractions/iofuncs.cpp
-        command.h
-        command.cpp)
-add_executable(echo commands/echo.cpp abstractions/iofuncs.cpp
-        commands/ren.cpp
-        commands/read.cpp
-        commands/ansi.cpp
-        commands/clear.cpp
-        commands/ls.cpp
-        commands/del.cpp
-)
+set(CMAKE_BUILD_TYPE Debug)
+
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+#set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBGIT2 REQUIRED libgit2)
+
+find_package(nlohmann_json REQUIRED)
+
+add_executable(slash src/main.cpp
+        src/core/execution.h
+        src/core/execution.cpp
+        src/core/prompt.cpp
+        src/core/prompt.h
+        src/core/startup.h
+        src/core/startup.cpp
+        src/abstractions/iofuncs.cpp
+        src/abstractions/iofuncs.h
+        src/abstractions/info.cpp
+        src/abstractions/info.h
+        src/git/git.cpp
+        src/git/git.h
+
+        src/builtin-cmds/cd.cpp
+        src/builtin-cmds/cd.h
+        src/core/parser.cpp
+        src/core/parser.h)
+
+target_link_libraries(slash PRIVATE git2)
+target_link_libraries(slash PRIVATE nlohmann_json::nlohmann_json)
+
+

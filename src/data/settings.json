@@ -1,0 +1,14 @@
+{
+    "utils": {
+        "del": {
+            "alwaysPromptWhenDeleting": false
+        },
+        "echo": {
+            "newlineBetweenArguments": false
+        }
+    },
+    "theme": {
+        "pathOfTheme": "default_theme.json"
+    },
+    "printExitCodeWhenProgramExits": false
+}

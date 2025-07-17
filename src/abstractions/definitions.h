@@ -6,6 +6,7 @@
 #define STDIN STDIN_FILENO
 
 #include <string>
+#include <unistd.h>
 
 // ANSI colors
 
@@ -25,6 +26,8 @@ const std::string white     = "\x1b[37m";
 const std::string orange    = "\x1b[38;5;202m";
 const std::string gray      = "\x1b[38;5;237m";
 
+const std::string slash_color = "\x1b[38;5;220m";
+
 // Background colors
 
 const std::string bg_black   = "\x1b[40m";
@@ -38,6 +41,9 @@ const std::string bg_white   = "\x1b[47m";
 
 const std::string bg_orange  = "\x1b[48;5;202m";
 const std::string bg_gray    = "\x1b[48;5;237m";
+
+const std::string home = getenv("HOME");
+const std::string slash_dir = home + "/.slash";
 
 
 

@@ -1,8 +1,10 @@
 #include <sstream>
 #include <math.h>
 #include "iofuncs.h"
+#include "info.h"
 #include <unistd.h>
 #include <cstring>
+#include <variant>
 
 void io::print(std::string text) {
 	write(STDOUT, text.c_str(), text.length());
@@ -38,16 +40,16 @@ std::string io::center(std::string text, int width) {
 	return std::string(pad, ' ') + text + std::string(pad, ' ');
 }
 
-std::string io::read_file(std::string filepath) {
+std::variant<std::string, int> io::read_file(std::string filepath) {
 	int fd = open(filepath.c_str(), O_RDONLY);
 	if(fd == -1) {
-		return "";
+		return errno;
 	}
 
 	char buffer[1024];
 	ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
 	if(bytesRead < 0) {
-		return "";
+		return errno;
 	}
 
 	buffer[bytesRead] = '\0';
@@ -56,12 +58,26 @@ std::string io::read_file(std::string filepath) {
 	return content;
 }
 
-void io::write_to_file(std::string filepath, std::string content) {
+int io::write_to_file(std::string filepath, std::string content) {
 	int fd = open(filepath.c_str(), O_WRONLY | O_APPEND);
-	if(fd == -1) { perror("error"); return; }
+	if(fd == -1) {
+		info::error(strerror(errno), errno, filepath);
+		return -1;
+	}
 
 	ssize_t bytes_written = write(fd, content.c_str(), content.length());
-	if(bytes_written == -1) { perror("error"); return; }
+	if(bytes_written == -1) {
+		info::error(strerror(errno), errno, filepath);
+	}
 
 	close(fd);
+	return 0;
+}
+
+std::string io::trim(const std::string &str) {
+	const std::string whitespace = " \t\n\r\f\v";
+	size_t start = str.find_first_not_of(whitespace);
+	if (start == std::string::npos) return "";
+	size_t end = str.find_last_not_of(whitespace);
+	return str.substr(start, end - start + 1);
 }
