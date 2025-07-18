@@ -94,32 +94,77 @@ class Ls : public Command {
 		}
 
 		int tree_print(std::string dir_path, int indent = 2, int level = 0) {
-			DIR* dir = opendir(dir_path.c_str());
-			if(dir == 0) {
+			DIR *dir = opendir(dir_path.c_str());
+			if (dir == 0) {
 				info::error(strerror(errno), errno, dir_path);
 				return -1;
 			}
 
-			struct dirent* entry;
-			while((entry = readdir(dir)) != nullptr) {
+			std::string beginning_tree = "┌";
+			std::string vertical_line = "│";
+			std::string connector = "├";
+			std::string end_of_branch = "└";
+			std::string line = "─";
+
+			struct dirent *entry;
+
+			std::vector<std::string> files;
+			while ((entry = readdir(dir)) != nullptr) {
 				std::string name = entry->d_name;
-				if(name == "." || name == "..") continue;
+				if (name == "." || name == "..") continue;
+				files.push_back(entry->d_name);
+			}
+
+			rewinddir(dir);
+
+			while ((entry = readdir(dir)) != nullptr) {
+				bool is_last_file = false;
+				bool is_first_file = false;
+
+				if (files[files.size() - 1] == entry->d_name) {
+					is_last_file = true;
+				}
+				if (level == 0 && entry->d_name == files[0]) {
+					is_first_file = true;
+				}
+
+				std::string name = entry->d_name;
+				if (name == "." || name == "..") continue;
 
 				std::stringstream fpath;
 				fpath << dir_path << "/" << name;
 				std::string path = fpath.str();
 
-				for(int i = 0; i < level; i++) {
+				for (int i = 0; i < level; i++) {
+					if (level > 0) {
+						io::print(vertical_line);
+						io::print(std::string(indent - 1, ' '));
+					}
+
 					io::print(std::string(indent, ' '));
 				}
 
-				if(entry->d_type == DT_REG) {// File
+				if (entry->d_type == DT_REG) {// File
+					if (is_first_file) {
+						io::print(beginning_tree + line);
+					} else if (!is_last_file) {
+						io::print(connector + line);
+					} else {
+						io::print(end_of_branch + line);
+					}
 					io::print(entry->d_name);
 					io::print("\n");
 					continue;
 				}
 
-				if(entry->d_type == DT_DIR) {
+				if (entry->d_type == DT_DIR) {
+					if (is_first_file) {
+						io::print(beginning_tree + line);
+					} else if (!is_last_file) {
+						io::print(connector + line);
+					} else {
+						io::print(end_of_branch + line);
+					}
 					std::stringstream output;
 					output << blue << name << reset << "\n";
 					io::print(output.str());
@@ -128,10 +173,17 @@ class Ls : public Command {
 					continue;
 				}
 
-				if(entry->d_type == DT_LNK) {
+				if (entry->d_type == DT_LNK) {
+					if (is_first_file) {
+						io::print(beginning_tree + line);
+					} else if (!is_last_file) {
+						io::print(connector + line);
+					} else {
+						io::print(end_of_branch + line);
+					}
 					char buffer[1024];
 					int bytesRead = readlink(path.c_str(), buffer, 1024);
-					if(bytesRead == -1) {
+					if (bytesRead == -1) {
 						std::string error = std::string("Failed to read symlink target path: ") + strerror(errno);
 						info::error(error, errno, path);
 						continue;
@@ -142,10 +194,10 @@ class Ls : public Command {
 					symlink_output << orange << name << reset << "->" << buffer << "\n";
 					io::print(symlink_output.str());
 				}
-		}
+			}
 
-		return 0;
-}
+			return 0;
+		}
 
 	public:
 		Ls() : Command("ls", "Lists all files, directories, and links in a directory", "") {}
