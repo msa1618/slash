@@ -74,6 +74,22 @@ int io::write_to_file(std::string filepath, std::string content) {
 	return 0;
 }
 
+int io::overwrite_file(std::string filepath, std::string content) {
+	int fd = open(filepath.c_str(), O_WRONLY | O_TRUNC);
+	if(fd == -1) {
+		info::error(strerror(errno), errno, filepath);
+		return -1;
+	}
+
+	ssize_t bytes_written = write(fd, content.c_str(), content.length());
+	if(bytes_written == -1) {
+		info::error(strerror(errno), errno, filepath);
+	}
+
+	close(fd);
+	return 0;
+}
+
 std::string io::trim(const std::string &str) {
 	const std::string whitespace = " \t\n\r\f\v";
 	size_t start = str.find_first_not_of(whitespace);

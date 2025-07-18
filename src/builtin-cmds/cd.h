@@ -5,7 +5,7 @@
 #include <variant>
 #include <vector>
 
-void create_alias(std::string name, std::string dirpath);
+int create_alias(std::string name, std::string dirpath);
 std::variant<std::string, int> get_alias(std::string alias);
 int cd(std::vector<std::string> args);
 

@@ -22,6 +22,7 @@ namespace io {
 
 	std::variant<std::string, int> read_file(std::string filepath);
 	int write_to_file(std::string filepath, std::string content);
+	int overwrite_file(std::string filepath, std::string content);
 
 	template <typename T, typename U>
 	bool vecContains(std::vector<T> vec, U target) { // For string vectors and string literals, which are interpreted as const char*
