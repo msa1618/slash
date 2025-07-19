@@ -1,5 +1,6 @@
 #include "git.h"
 #include <iostream>
+#include <filesystem>
 
 GitRepo::GitRepo(std::string repo_path) : repo(nullptr), path(repo_path) {
 	git_libgit2_init();
@@ -14,7 +15,17 @@ GitRepo::~GitRepo() {
 }
 
 bool GitRepo::has_git_repo() {
-	return git_repository_open(&repo, path.c_str()) == 0;
+	std::filesystem::path current = path;
+	while(true) {
+		if(git_repository_open(&repo, current.c_str())) {
+			return true;
+		}
+
+		if(current == "/") break;
+		current = current.parent_path();
+	}
+
+	return false;
 }
 
 bool GitRepo::is_file_staged(const std::string& filepath, std::string dir_path) {
@@ -35,14 +46,27 @@ bool GitRepo::is_file_staged(const std::string& filepath, std::string dir_path) 
 std::string GitRepo::get_branch_name() {
 	const char* branch_name = nullptr;
 	git_reference* head = nullptr;
+	std::filesystem::path current = path;
 
-	if (git_repository_open(&repo, path.c_str()) != 0) return "";
-
-	if (git_repository_head(&head, repo) == 0) {
-		if (git_branch_name(&branch_name, head) == 0 && branch_name) {
-			return std::string(branch_name);
+	while (true) {
+		git_repository* temp_repo = nullptr;
+		if (git_repository_open(&temp_repo, current.c_str()) == 0) {
+			if (git_repository_head(&head, temp_repo) == 0) {
+				if (git_branch_name(&branch_name, head) == 0 && branch_name) {
+					std::string result(branch_name);
+					git_reference_free(head);
+					git_repository_free(temp_repo);
+					return result;
+				}
+				git_reference_free(head);
+			}
+			git_repository_free(temp_repo);
 		}
-		git_reference_free(head);
+
+		if (current == "/") break;
+		current = current.parent_path();
 	}
+
 	return "";
 }
+
