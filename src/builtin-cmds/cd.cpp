@@ -16,7 +16,7 @@ std::variant<std::string, int> get_alias(std::string alias) {
 		info::error(err, errno, ".cd_aliases");
 		return errno;
 	}
-	std::vector<std::string> lines = io::split(std::get<std::string>(contents), '\n');
+	std::vector<std::string> lines = io::split(std::get<std::string>(contents), "\n");
 	for(auto& line : lines) {
 		std::string prefix = "@" + alias + " = ";
 		if(line.starts_with(prefix)) {
@@ -60,7 +60,7 @@ int create_alias(std::string name, std::string dirpath) {
 				info::error(error, errno);
 				return -1;
 			}
-			std::vector<std::string> lines = io::split(std::get<std::string>(content), '\n');
+			std::vector<std::string> lines = io::split(std::get<std::string>(content), "\n");
 			lines.erase(std::remove_if(lines.begin(), lines.end(), [&](const std::string& line) {
 				return line.starts_with("@" + name + " = ");
 			}), lines.end());
@@ -97,20 +97,20 @@ void list_aliases() {
 	std::vector<std::string> result;
 
 	std::string content = std::get<std::string>(aliases);
-	std::vector<std::string> lines = io::split(content, '\n');
+	std::vector<std::string> lines = io::split(content, "\n");
 	if(lines.empty()) return;
 
 	for(auto& l : lines) { // First loop: Get the longest alias name
 		if(l.starts_with("//")) continue; // Comment
 		if(l.empty() || l == "\n") continue; // A whole line with just \n will cause a segfault
-		auto pair = io::split(l, '=');
+		auto pair = io::split(l, "=");
 		if(pair[0].length() > longest_alias_name) longest_alias_name = pair[0].length();
 	}
 
 	for(auto& line : lines) {
 		if(line.starts_with("//")) continue;
 		if(line.empty()) continue;
-		auto pair = io::split(line, '=');
+		auto pair = io::split(line, "=");
 		pair[0].resize(longest_alias_name, ' ');
 
 		std::stringstream output;
@@ -179,6 +179,8 @@ int cd(std::vector<std::string> args) {
 			}
 		}
 	}
+
+
 
 	if(chdir(args[1].c_str()) != 0) {
 		info::error(strerror(errno), errno);

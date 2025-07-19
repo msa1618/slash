@@ -15,7 +15,7 @@ namespace io {
 
 
 	std::string join(std::vector<std::string> vec, std::string joiner);
-	std::vector<std::string> split(const std::string &s, char delimiter);
+	std::vector<std::string> split(const std::string &s, std::string delimiter);
 	std::string center(std::string text, int width);
 
 	std::string trim(const std::string& str);

@@ -89,7 +89,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 						info::error(err, errno, "~/.slash/.slash_history");
 						return -1;
 					}
-					std::vector<std::string> commands = io::split(std::get<std::string>(history), '\n');
+					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
 					if (commands.empty()) break;
 
 					if (history_index < commands.size())
@@ -113,7 +113,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 						info::error(err, errno, "~/.slash/.slash_history");
 						return -1;
 					}
-					std::vector<std::string> commands = io::split(std::get<std::string>(history), '\n');
+					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
 					if (commands.empty()) break;
 
 					if (history_index < commands.size())

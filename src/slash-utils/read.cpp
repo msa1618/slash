@@ -60,7 +60,7 @@ class Read : public Command {
 					}
 					std::string full = ss.str();
 					std::reverse(full.begin(), full.end());
-					data = io::split(full, ' ');
+					data = io::split(full, " ");
 				}
 
 				if(arg == "-rl" || arg == "--reverse-lines") {

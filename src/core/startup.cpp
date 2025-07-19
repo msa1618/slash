@@ -61,11 +61,11 @@ void execute_startup_commands() {
 		return;
 	}
 
-	std::vector<std::string> lines = io::split(std::get<std::string>(startup_commands), '\n');
+	std::vector<std::string> lines = io::split(std::get<std::string>(startup_commands), "\n");
 	for(auto& command : lines) {
 		command = interpret_escapes(command);
 		if(command.empty()) continue;
-		std::vector<std::string> tokens = io::split(command, ' ');
+		std::vector<std::string> tokens = io::split(command, " ");
 		execute(tokens, false);
 	}
 }

@@ -14,17 +14,20 @@ void io::print_err(const char *text) {
 	write(STDERR, text, strlen(text));
 }
 
-std::vector<std::string> io::split(const std::string& s, char delimiter) {
+std::vector<std::string> io::split(const std::string& s, std::string delimiter) {
 	std::vector<std::string> tokens;
-	std::stringstream ss(s);
-	std::string item;
+	size_t start = 0;
+	size_t end;
 
-	while (std::getline(ss, item, delimiter)) {
-		tokens.push_back(item);
+	while ((end = s.find(delimiter, start)) != std::string::npos) {
+		tokens.push_back(s.substr(start, end - start));
+		start = end + delimiter.length();
 	}
+	tokens.push_back(s.substr(start));
 
 	return tokens;
 }
+
 
 std::string io::join(std::vector<std::string> vec, std::string joiner) {
 	std::stringstream ss;

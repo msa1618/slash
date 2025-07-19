@@ -27,7 +27,7 @@ class Procs : public Command {
 
 		buffer[bytesRead] = '\0';
 
-		std::vector<std::string> infs = io::split(std::string(buffer), ' ');
+		std::vector<std::string> infs = io::split(std::string(buffer), " ");
 
 		int ppid = std::stoi(infs[3]); // Fourth field of the stats file is the ppid
 		int tty = std::stoi(infs[6]);
