@@ -7,6 +7,7 @@
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
 #include "../builtin-cmds/cd.h"
+#include "../builtin-cmds/var.h"
 #include "startup.h"
 #include <nlohmann/json.hpp>
 
@@ -139,7 +140,14 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 	}
 
 	if (args[0] == "cd") {
+		args.erase(args.begin()); // Avoid executing "cd cd [args]"
 		cd(args);
+		return 0;
+	}
+
+	if(args[0] == "var") {
+		args.erase(args.begin());
+		var(args);
 		return 0;
 	}
 

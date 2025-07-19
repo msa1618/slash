@@ -14,7 +14,8 @@ pkg_check_modules(LIBGIT2 REQUIRED libgit2)
 
 find_package(nlohmann_json REQUIRED)
 
-add_executable(slash src/main.cpp
+add_executable(slash
+        src/main.cpp
         src/core/execution.h
         src/core/execution.cpp
         src/core/prompt.cpp
@@ -31,7 +32,10 @@ add_executable(slash src/main.cpp
         src/builtin-cmds/cd.cpp
         src/builtin-cmds/cd.h
         src/core/parser.cpp
-        src/core/parser.h)
+        src/core/parser.h
+        src/builtin-cmds/var.cpp
+        src/builtin-cmds/var.h
+)
 
 target_link_libraries(slash PRIVATE git2)
 target_link_libraries(slash PRIVATE nlohmann_json::nlohmann_json)
