@@ -5,6 +5,17 @@
 #include <algorithm>
 #include <sstream>
 
+std::string tab_to_spaces(std::string content, int indent) {
+	std::string spaces(indent, ' ');
+	size_t pos = 0;
+	while ((pos = content.find('\t', pos)) != std::string::npos) {
+		content.replace(pos, 1, spaces);
+		pos += spaces.length();
+	}
+	return content;
+}
+
+
 class Read : public Command {
 	public:
 		Read() : Command("read", "Prints out a file's content"
@@ -16,6 +27,7 @@ class Read : public Command {
 			if(args.empty()) {
 				io::print("read: Print a file's content\n"
 									"usage: read <filepath>\n");
+				return 0;
 			}
 
 			std::string path;
@@ -66,7 +78,26 @@ class Read : public Command {
 				perror("read failed");
 			}
 
-			io::print(io::join(data, ""));
+			std::vector<std::string> lines = io::split(io::join(data, ""), '\n');
+
+			int line_width = 0;
+			int longest_num_length = std::to_string(lines.size() - 1).length(); // Line no of the last element
+
+			line_width = std::to_string(lines.size()).length();
+			if(line_width % 2 == 0) line_width += 3;
+			else line_width += 2;
+
+			for(int i = 0; i < lines.size(); i++) {
+				lines[i] = tab_to_spaces(lines[i], 2);
+				std::string line_no =  std::to_string(i + 1);
+				line_no.resize(longest_num_length, ' ');
+
+				io::print(std::string((line_width - 1) / 2, ' ') + " ");
+				io::print(gray + line_no + reset);
+				io::print(std::string((line_width - 1) / 2, ' ') +  gray + "│ " + reset);
+				io::print(lines[i] + "\n");
+			}
+
 			io::print("\n");
 
 			close(fd);
