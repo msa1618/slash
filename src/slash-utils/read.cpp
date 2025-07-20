@@ -1,5 +1,7 @@
 #include "../command.h"
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/info.h"
+#include "syntax_highlighting/cpp.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <algorithm>
@@ -15,7 +17,6 @@ std::string tab_to_spaces(std::string content, int indent) {
 	return content;
 }
 
-
 class Read : public Command {
 	public:
 		Read() : Command("read", "Prints out a file's content"
@@ -26,59 +27,80 @@ class Read : public Command {
 		int exec(std::vector<std::string> args) {
 			if(args.empty()) {
 				io::print("read: Print a file's content\n"
-									"usage: read <filepath>\n");
+									"usage: read <filepath>\n"
+									"flags:\n"
+									"-r  | --reverse:       Print fully reversed\n"
+									"-rl | --reverse-lines: Reverse the lines only, not the text inside.\n"
+									"-h  | --hidden:        Show non-printable characters.\n");
 				return 0;
 			}
 
+			std::vector<std::string> validArgs = {
+				"-r", "-rl", "-h",
+				"--reverse", "--reverse-lines", "--hidden"
+			};
+
+			bool show_hidden_chars = false;
+			bool reverse_lines     = false;
+			bool reverse_text      = false;
+
+			int indent             = 2;
+
 			std::string path;
 			for(auto& arg : args) {
-				if(!arg.starts_with("-")) {  // Will make the condition better later
+				if(!io::vecContains(validArgs, arg) && arg.starts_with("-")) {
+					info::error("Invalid argument \"" + arg + "\".\n");
+					return -1;
+				}
+
+				if(!arg.starts_with("-")) {
 					path = arg;
 				}
+
+				if(arg == "-h" || arg == "--hidden") show_hidden_chars = true;
+				if(arg == "-r" || arg == "--reverse") reverse_text = true;
+				if(arg == "-rl" || arg == "--reverse-lines") reverse_lines = true;
 			}
 
-			int fd = open(path.c_str(), O_RDONLY);
-			if(fd == -1) {
-				perror("Failed to open file");
+			auto rf = io::read_file(path);
+			if(!std::holds_alternative<std::string>(rf)) {
+				std::string error = std::string("Failed to read file: ") + strerror(errno);
+				info::error(error, errno);
+				return -1;
 			}
 
-			std::vector<std::string> data;
+			std::string content = std::get<std::string>(rf);
+			std::vector<std::string> lines = io::split(content, "\n");
 
-			char buffer[1024];
-			ssize_t bytesRead;
+			for(auto& l : lines) {
+				if(show_hidden_chars) {
+					std::string space = cyan + "·" + reset;
+					std::string enter = gray + "↲" + reset;
+					std::string tab = gray + "├" + std::string(indent - 2, '─') + "┤" + reset;
+					std::vector<std::string> control_pics = {
+						"␀", "␁", "␂", "␃", "␄", "␅", "␆", "␇",
+						"␈", "␉", "␊", "␋", "␌", "␍", "␎", "␏",
+						"␐", "␑", "␒", "␓", "␔", "␕", "␖", "␗",
+						"␘", "␙", "␚", "␛", "␜", "␝", "␞", "␟"
+					};
 
-			while ((bytesRead = read(fd, buffer, sizeof(buffer) - 1)) > 0) {
-				buffer[bytesRead] = '\0';
-				data.emplace_back(buffer);
-			}
-
-			for(auto& arg : args) {
-				if(arg == "-r" || arg == "--reverse") {
-					std::stringstream ss;
-					for (auto& chunk : data) {
-						ss << chunk;
+					std::string line;
+					for (auto& c : l) {
+						int code = static_cast<int>(c);
+						if(c == '\n') { line += control_pics[code] + enter; continue;}
+						if(c == '\t') { line += tab; continue; }
+						if(c == ' ') { line += space; continue; }
+						if(code < 32) { line += control_pics[code]; continue; }
+						line += c;
 					}
-					std::string full = ss.str();
-					std::reverse(full.begin(), full.end());
-					data = io::split(full, " ");
-				}
-
-				if(arg == "-rl" || arg == "--reverse-lines") {
-					std::stringstream ss;
-					for(auto& letter : data) {
-						ss << letter;
-					}
-					auto vec = io::split(ss.str(), ' ');
-					std::reverse(vec.begin(), vec.end());
-					data = io::split(io::join(vec, "\n"), ' ');
+					l = line + enter;
 				}
 			}
 
-			if (bytesRead == -1) {
-				perror("read failed");
+			for(auto& l : lines) {
+				// Highlighting isn't implemented yet when there are hidden characters, otherwise you'll see terminal gore
+				if(path.ends_with(".cpp") && !show_hidden_chars) l = cpp_sh(l);
 			}
-
-			std::vector<std::string> lines = io::split(io::join(data, ""), '\n');
 
 			int line_width = 0;
 			int longest_num_length = std::to_string(lines.size() - 1).length(); // Line no of the last element
@@ -99,8 +121,6 @@ class Read : public Command {
 			}
 
 			io::print("\n");
-
-			close(fd);
 		}
 };
 
