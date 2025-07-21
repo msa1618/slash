@@ -5,13 +5,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <algorithm>
 #include <math.h>
 
 class Ls : public Command {
 	private:
-		int default_print(std::string dir_path) {
+		int default_print(std::string dir_path, bool print_hidden) {
 			char buffer[512];
 			const char* path;
 
@@ -33,6 +34,11 @@ class Ls : public Command {
 			std::vector<std::pair<std::string, std::string>> entries;
 
 			while ((entry = readdir(d)) != NULL) {
+				std::string name = entry->d_name;
+				if ((name == "." || name == "..") || (!print_hidden && name.starts_with("."))) {
+					continue;
+				}
+
 				char *type;
 				switch (entry->d_type) {
 					case DT_REG:
@@ -57,11 +63,6 @@ class Ls : public Command {
 			}
 
 			std::sort(entries.begin(), entries.end());
-
-			// Added in by dirent
-			entries.erase(std::remove_if(entries.begin(), entries.end(), [](const auto& e) {
-				return e.first == "." || e.first == "..";
-			}), entries.end());
 
 			int longest_num_width = 0;
 			for(int i = 0; i < entries.size(); i++) {
@@ -93,111 +94,71 @@ class Ls : public Command {
 			return 0;
 		}
 
-		int tree_print(std::string dir_path, int indent = 2, int level = 0) {
-			DIR *dir = opendir(dir_path.c_str());
-			if (dir == 0) {
-				info::error(strerror(errno), errno, dir_path);
-				return -1;
-			}
-
-			std::string beginning_tree = "┌";
-			std::string vertical_line = "│";
-			std::string connector = "├";
-			std::string end_of_branch = "└";
-			std::string line = "─";
-
-			struct dirent *entry;
-
-			std::vector<std::string> files;
-			while ((entry = readdir(dir)) != nullptr) {
-				std::string name = entry->d_name;
-				if (name == "." || name == "..") continue;
-				files.push_back(entry->d_name);
-			}
-
-			rewinddir(dir);
-
-			while ((entry = readdir(dir)) != nullptr) {
-				bool is_last_file = false;
-				bool is_first_file = false;
-
-				if (files[files.size() - 1] == entry->d_name) {
-					is_last_file = true;
-				}
-				if (level == 0 && entry->d_name == files[0]) {
-					is_first_file = true;
-				}
-
-				std::string name = entry->d_name;
-				if (name == "." || name == "..") continue;
-
-				std::stringstream fpath;
-				fpath << dir_path << "/" << name;
-				std::string path = fpath.str();
-
-				for (int i = 0; i < level; i++) {
-					if (level > 0) {
-						io::print(vertical_line);
-						io::print(std::string(indent - 1, ' '));
-					}
-
-					io::print(std::string(indent, ' '));
-				}
-
-				if (entry->d_type == DT_REG) {// File
-					if (is_first_file) {
-						io::print(beginning_tree + line);
-					} else if (!is_last_file) {
-						io::print(connector + line);
-					} else {
-						io::print(end_of_branch + line);
-					}
-					io::print(entry->d_name);
-					io::print("\n");
-					continue;
-				}
-
-				if (entry->d_type == DT_DIR) {
-					if (is_first_file) {
-						io::print(beginning_tree + line);
-					} else if (!is_last_file) {
-						io::print(connector + line);
-					} else {
-						io::print(end_of_branch + line);
-					}
-					std::stringstream output;
-					output << blue << name << reset << "\n";
-					io::print(output.str());
-
-					tree_print(path, indent, level + 1);
-					continue;
-				}
-
-				if (entry->d_type == DT_LNK) {
-					if (is_first_file) {
-						io::print(beginning_tree + line);
-					} else if (!is_last_file) {
-						io::print(connector + line);
-					} else {
-						io::print(end_of_branch + line);
-					}
-					char buffer[1024];
-					int bytesRead = readlink(path.c_str(), buffer, 1024);
-					if (bytesRead == -1) {
-						std::string error = std::string("Failed to read symlink target path: ") + strerror(errno);
-						info::error(error, errno, path);
-						continue;
-					}
-					buffer[bytesRead] = '\0';
-
-					std::stringstream symlink_output;
-					symlink_output << orange << name << reset << "->" << buffer << "\n";
-					io::print(symlink_output.str());
-				}
-			}
-
-			return 0;
+	int tree_print(std::string dir_path, bool print_hidden, std::vector<bool> last_entry_stack = {}) {
+		DIR *dir = opendir(dir_path.c_str());
+		if (!dir) {
+			info::error(strerror(errno), errno, dir_path);
+			return -1;
 		}
+
+		struct dirent *entry;
+		std::vector<std::string> names;
+
+		// Collect entries
+		while ((entry = readdir(dir)) != nullptr) {
+			std::string name = entry->d_name;
+			if ((name == "." || name == "..") || (!print_hidden && name.starts_with("."))) {
+				continue;
+			}
+			names.push_back(name);
+		}
+
+		std::sort(names.begin(), names.end());
+		for (size_t i = 0; i < names.size(); ++i) {
+			bool is_last = (i == names.size() - 1);
+			std::string name = names[i];
+			std::string path = dir_path + "/" + name;
+
+			struct stat path_stat;
+			if (lstat(path.c_str(), &path_stat) == -1) {
+				perror("lstat");
+				continue;
+			}
+
+			// Print indentation and vertical lines for ancestor levels
+			for (size_t lvl = 0; lvl < last_entry_stack.size(); ++lvl) {
+				if (last_entry_stack[lvl]) {
+					io::print("  ");    // no vertical line, last entry at this level
+				} else {
+					io::print("│ ");
+				}
+			}
+
+			// Print branch for current entry
+			io::print(is_last ? "└─" : "├─");
+
+			if (S_ISDIR(path_stat.st_mode)) {
+				io::print(blue + name + reset + "\n");
+				auto new_stack = last_entry_stack;
+				new_stack.push_back(is_last);
+				tree_print(path, print_hidden, new_stack);
+			} else if (S_ISLNK(path_stat.st_mode)) {
+				char buf[1024];
+				ssize_t len = readlink(path.c_str(), buf, sizeof(buf) - 1);
+				if (len != -1) {
+					buf[len] = '\0';
+					io::print(orange + name + reset + " -> " + buf + "\n");
+				} else {
+					io::print(orange + name + reset + " -> [unreadable]\n");
+				}
+			} else {
+				io::print(name + "\n");
+			}
+		}
+
+		closedir(dir);
+		return 0;
+	}
 
 	public:
 		Ls() : Command("ls", "Lists all files, directories, and links in a directory", "") {}
@@ -207,15 +168,17 @@ class Ls : public Command {
 				char buffer[1024];
 				getcwd(buffer, 1024);
 
-				default_print(buffer);
+				default_print(buffer, false);
 				return 0;
 			}
 
 			std::string path;
 			bool print_tree = false;
+			bool print_hidden = false;
 
 			std::vector<std::string> validArgs = {
-				"-t", "-d"
+				"-t", "-a",
+				"--tree", "--all"
 			};
 
 			for(auto& arg : args) {
@@ -224,9 +187,8 @@ class Ls : public Command {
 					return -1;
 				}
 
-				if(arg == "-t") {
-					print_tree = true;
-				}
+				if(arg == "-t" || arg == "--tree") print_tree = true;
+				if(arg == "-a" || arg == "--all") print_hidden = true;
 
 				if(!arg.starts_with("-")) {
 					path = arg;
@@ -240,11 +202,14 @@ class Ls : public Command {
 				dirpath = buffer;
 			}
 
+			std::string s = print_hidden ? "true" : "false";
+			info::debug("ph " + s);
+
 			if(print_tree) {
-				tree_print(dirpath);
+				tree_print(dirpath, print_hidden);
 				return 0;
 			} else {
-				default_print(dirpath);
+				default_print(dirpath, print_hidden);
 				return 0;
 			}
 		}
