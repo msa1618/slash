@@ -50,6 +50,12 @@ class Ls : public Command {
 					case DT_LNK:
 						type = "link";
 						break;
+					case DT_FIFO:
+						type = "fifo";
+						break;
+					case DT_SOCK:
+						type = "socket";
+						break;
 					default:
 						type = "other";
 						break;
@@ -62,7 +68,9 @@ class Ls : public Command {
 				entries.emplace_back(entry->d_name, type);
 			}
 
-			std::sort(entries.begin(), entries.end());
+			std::sort(entries.begin(), entries.end(), [](auto& a, auto& b) {
+				return a.second < b.second;
+			});
 
 			int longest_num_width = 0;
 			for(int i = 0; i < entries.size(); i++) {
@@ -79,15 +87,22 @@ class Ls : public Command {
 
 				num.resize(longest_num_width, ' ');
 				name.resize(longest_name_length, ' ');
-				type.resize(6, ' ');
+				type.resize(7, ' ');
+
+				std::string color;
+				if(type == "dir") color = bold + blue;
+				if(type == "fifo") color = bold + "\x1b[38;5;57m"; // purple
+				if(type == "link") color = bold + orange;
+				if(type == "pipe") color = bold + red;
+				if(type == "file") color = green;
+				if(type == "other") color = gray;
 
 				io::print(num);
-				io::print(" | ");
-				io::print(name);
-				io::print(" | ");
+				io::print(" │ ");
+				io::print(color + name + reset);
+				io::print(" │ ");
 				io::print(type);
-				io::print("| \n");
-
+				io::print("│ \n");
 			}
 
 			closedir(d);
@@ -138,7 +153,7 @@ class Ls : public Command {
 			io::print(is_last ? "└─" : "├─");
 
 			if (S_ISDIR(path_stat.st_mode)) {
-				io::print(blue + name + reset + "\n");
+				io::print(bold + blue + name + reset + "\n");
 				auto new_stack = last_entry_stack;
 				new_stack.push_back(is_last);
 				tree_print(path, print_hidden, new_stack);
@@ -147,12 +162,16 @@ class Ls : public Command {
 				ssize_t len = readlink(path.c_str(), buf, sizeof(buf) - 1);
 				if (len != -1) {
 					buf[len] = '\0';
-					io::print(orange + name + reset + " -> " + buf + "\n");
+					io::print(bold + orange + name + reset + " -> " + buf + "\n");
 				} else {
 					io::print(orange + name + reset + " -> [unreadable]\n");
 				}
+			} else if(S_ISSOCK(path_stat.st_mode)) {
+				io::print(bold + magenta + name + reset + "\n");
+			} else if(S_ISFIFO(path_stat.st_mode)) {
+				io::print(bold + red + name + reset + "\n");
 			} else {
-				io::print(name + "\n");
+				io::print(green + name + reset + "\n");
 			}
 		}
 
@@ -201,9 +220,6 @@ class Ls : public Command {
 				getcwd(buffer, 1024);
 				dirpath = buffer;
 			}
-
-			std::string s = print_hidden ? "true" : "false";
-			info::debug("ph " + s);
 
 			if(print_tree) {
 				tree_print(dirpath, print_hidden);
