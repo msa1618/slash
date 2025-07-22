@@ -12,6 +12,7 @@ Args parse_arguments(const std::string& command) {
 
 	for (size_t i = 0; i < command.size(); i++) {
 		char c = command[i];
+		char next = command[i + 1];
 
 		if (c == ' ' && !buffer.empty() && !(dq_mode || sq_mode)) {
 			args.push_back(buffer);
@@ -38,6 +39,23 @@ Args parse_arguments(const std::string& command) {
 			sq_mode = false;
 			args.push_back(buffer);
 			buffer.clear();
+			continue;
+		}
+
+		if(c == '\\' && i + 1 < command.size()) {
+			switch(next) {
+				case '"': buffer.push_back('\"'); i++; break;
+				case '\'': buffer.push_back('\''); i++; break;
+				case 'n': buffer.push_back('\n'); i++; break;
+				case 't': buffer.push_back('\t'); i++; break;
+				case '\\': buffer.push_back('\\'); i++; break;
+				default: {
+					// Push as is
+					buffer.push_back(c);
+					buffer.push_back(next);
+					break;
+				}
+			}
 			continue;
 		}
 

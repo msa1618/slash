@@ -191,7 +191,7 @@ std::string print_prompt() {
 	}
 
 	if(ssh) {
-		prompt << green << "ssh" << reset << "\n";
+		prompt << green << "ssh" << reset;
 	}
 
 	io::print(prompt.str());
