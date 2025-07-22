@@ -64,16 +64,23 @@ class Csv : public Command {
 				}
 
 				if (args[i] == "-s" || args[i] == "--separator") {
+					if(i + 1 > args.size()) {
+						info::error("Expected separator.");
+						return -1;
+					}
 					separator = args[++i];
-					++i;
 				}
 
 				if (args[i] == "-t" || args[i] == "--text") {
+					if(i + 1 > args.size()) {
+						info::error("Expected text.");
+						return -1;
+					}
 					arg = args[++i];
 					is_text = true;
 				}
 
-				if (!args[i].starts_with("-") && !is_text) {
+				if (!args[i].starts_with("-") && !is_text && arg.empty()) {
 					arg = args[i];
 				}
 			}
@@ -84,7 +91,7 @@ class Csv : public Command {
 			} else {
 				auto content = io::read_file(arg);
 				if (!std::holds_alternative<std::string>(content)) {
-					std::string error = std::string("Failed to open file: ") + strerror(errno);
+					std::string error = std::string("Failed to open \"" + arg + "\":") + strerror(errno);
 					info::error(error, errno);
 					return -1;
 				}
