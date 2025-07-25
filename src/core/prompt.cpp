@@ -163,7 +163,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 
 std::string print_prompt() {
 	char buffer[512];
-	const char* cwd = getcwd(buffer, sizeof(buffer));
+	std::string cwd = getcwd(buffer, sizeof(buffer));
 
 	GitRepo repo(cwd);
 
@@ -178,6 +178,11 @@ std::string print_prompt() {
 	auto btr_status = battery_path.empty() ? std::variant<std::string, int>{-1} : io::read_file(bs_path);
 
 	std::stringstream prompt;
+
+	std::string home = getenv("HOME");
+	if (cwd.starts_with(home)) {
+		cwd.replace(0, home.length(), "~");
+	}
 	prompt << slash_color << cwd << reset << " ";
 	prompt << orange << branch << reset << " ";
 

@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstring>
+#include <algorithm>
 #include "../abstractions/definitions.h"
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
@@ -182,6 +183,10 @@ int cd(std::vector<std::string> args) {
 
 
 
+	if(args[1].starts_with("~")) {
+		std::string home = getenv("HOME");
+		io::replace_all(args[1], "~", home);
+	}
 	if(chdir(args[1].c_str()) != 0) {
 		info::error(strerror(errno), errno);
 		return -1;
