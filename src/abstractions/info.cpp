@@ -18,7 +18,7 @@ namespace info {
 		std::stringstream ss;
 		ss << red << "[Error] " << reset << error << " ";
 		if (code != 0) {
-			ss << gray << "(" << code << ") ";
+			ss << gray << "(" << code << ") " << reset;
 		}
 		if (!file_affected.empty()) {
 			ss << "- " << file_affected;
