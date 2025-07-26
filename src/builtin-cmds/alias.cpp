@@ -135,7 +135,7 @@ void delete_alias(std::string name) {
 	}
 
 	aliases.erase(it, aliases.end());
-	io::write_to_file(aliases_path, io::join(aliases, "\n"));
+	io::overwrite_file(aliases_path, io::join(aliases, "\n"));
 }
 
 void delete_all_aliases() {
