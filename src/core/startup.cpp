@@ -66,7 +66,7 @@ void execute_startup_commands() {
 		command = interpret_escapes(command);
 		if(command.empty()) continue;
 		std::vector<std::string> tokens = io::split(command, " ");
-		execute(tokens, false);
+		execute(tokens, io::join(tokens, " "), false);
 	}
 }
 

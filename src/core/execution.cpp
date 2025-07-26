@@ -114,36 +114,28 @@ int pipe_execute(std::vector<std::vector<std::string>> commands) {
     return exit_status;
 }
 
-int execute(std::vector<std::string> args, bool save_to_history) {
-	if (args.empty()) return 0;
+int execute(std::vector<std::string> parsed_args, std::string input, bool save_to_history) {
+	if (parsed_args.empty()) return 0;
 
-	std::string cmd = args[0]; // To save the original command name instead of ~/slash-utils/cmd if it's a slash utility
+	std::string cmd = parsed_args[0]; // To save the original command name instead of ~/slash-utils/cmd if it's a slash utility
 
 	bool using_path = false;
 	const char* home_env = getenv("HOME");
 	std::string home_dir = home_env ? home_env : "";
 
 	// If command is a slash utility, change the path of the first argument
-	std::string cmd_path = std::string(home_env) + "/.slash/slash-utils/" + args[0];
+	std::string cmd_path = std::string(home_env) + "/.slash/slash-utils/" + parsed_args[0];
 	if (access(cmd_path.c_str(), X_OK) == 0) {
-		args[0] = cmd_path;
+		parsed_args[0] = cmd_path;
 		using_path = true;
 	}
 
-	std::vector<std::string> original_cmd;
-	if(using_path) {
-		for(int i = 0; i < args.size(); i++) {
-			if(i == 0) {
-				original_cmd.push_back(cmd + " ");
-				continue;
-			}
-			original_cmd.push_back(args[i]);
-		}
-	}
+	std::vector<std::string> original_cmd = io::split(input, " ");
+	original_cmd[0] = cmd;
 
 	if (save_to_history) {
 		std::string history_path = std::string(home_env) + "/.slash/.slash_history";
-		auto data = using_path ? io::join(original_cmd, " ") : io::join(args, " ");
+		auto data = using_path ? io::join(original_cmd, " ") : input;
 		data = io::trim(data);
 
 		if (io::write_to_file(history_path, data + "\n") != 0) {
@@ -153,21 +145,21 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 		}
 	}
 
-	if (args[0] == "cd") {
-		// Avoid executing "cd cd [args]"
-		cd(args);
+	if (parsed_args[0] == "cd") {
+		// Avoid executing "cd cd [parsed_args]"
+		cd(parsed_args);
 		return 0;
 	}
 
-	if(args[0] == "var") {
-		args.erase(args.begin());
-		var(args);
+	if(parsed_args[0] == "var") {
+		parsed_args.erase(parsed_args.begin());
+		var(parsed_args);
 		return 0;
 	}
 
-	if(args[0] == "alias") {
-		args.erase(args.begin());
-		return alias(args);
+	if(parsed_args[0] == "alias") {
+		parsed_args.erase(parsed_args.begin());
+		return alias(parsed_args);
 	}
 
 	pid_t pid = fork();
@@ -178,7 +170,7 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 
 	if (pid == 0) {
 		std::vector<char*> argv;
-		for (auto& arg : args) {
+		for (auto& arg : parsed_args) {
 			argv.push_back(const_cast<char*>(arg.c_str()));
 		}
 		argv.push_back(nullptr); // NULL-terminate
@@ -196,7 +188,7 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 		}
 
 		// If execvp or execv fail
-		std::string err = std::string("\"" + args[0] + "\"" + "Failed to execute \"" + args[0] + "\": ") + strerror(errno);
+		std::string err = std::string("\"" + parsed_args[0] + "\"" + "Failed to execute \"" + parsed_args[0] + "\": ") + strerror(errno);
 		info::error(err, errno);
 		exit(errno); // terminate child
 	} else {
