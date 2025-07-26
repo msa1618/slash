@@ -2,6 +2,7 @@
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
 #include "../builtin-cmds/var.h"
+#include "../builtin-cmds/alias.h"
 
 Args parse_arguments(const std::string& command) {
 	std::string buffer;
@@ -10,9 +11,22 @@ Args parse_arguments(const std::string& command) {
 	bool dq_mode = false;
 	bool sq_mode = false;
 
-	for (size_t i = 0; i < command.size(); i++) {
-		char c = command[i];
-		char next = command[i + 1];
+	// Detect and replace alias in the raw command string
+	std::string first_word;
+	size_t i = 0;
+	while (i < command.size() && command[i] != ' ') {
+		first_word += command[i++];
+	}
+	std::string alias = get_alias(first_word, false);
+	std::string parsed_command = (alias != "UNKNOWN")
+		? alias + command.substr(first_word.size())
+		: command;
+
+	// Now parse parsed_command instead of original command
+	buffer.clear();
+	for (i = 0; i < parsed_command.size(); i++) {
+		char c = parsed_command[i];
+		char next = parsed_command[i + 1];
 
 		if (c == ' ' && !buffer.empty() && !(dq_mode || sq_mode)) {
 			args.push_back(buffer);
@@ -42,19 +56,17 @@ Args parse_arguments(const std::string& command) {
 			continue;
 		}
 
-		if(c == '\\' && i + 1 < command.size()) {
+		if(c == '\\' && i + 1 < parsed_command.size()) {
 			switch(next) {
 				case '"': buffer.push_back('\"'); i++; break;
 				case '\'': buffer.push_back('\''); i++; break;
 				case 'n': buffer.push_back('\n'); i++; break;
 				case 't': buffer.push_back('\t'); i++; break;
 				case '\\': buffer.push_back('\\'); i++; break;
-				default: {
-					// Push as is
+				default:
 					buffer.push_back(c);
 					buffer.push_back(next);
 					break;
-				}
 			}
 			continue;
 		}
@@ -62,27 +74,27 @@ Args parse_arguments(const std::string& command) {
 		buffer.push_back(c);
 	}
 
-	for(auto& arg : args) {
-		if (arg.find("$(") != std::string::npos && arg.find(")", arg.find("$(")) != std::string::npos) {
-			std::size_t start = arg.find("$(");
-			std::size_t end = arg.find(")", start);
-
-			std::string variable = arg.substr(start + 2, end - (start + 2));
-			if(variable.find(" ") != std::string::npos) {
-				info::error("Variable cannot contain spaces!");
-				return {};
-			}
-
-			auto value = get_value(variable);
-			if(!std::holds_alternative<std::string>(value)) {
-				return {};
-			}
-			arg.replace(start, end - start + 1, std::get<std::string>(value));
-		}
-	}
-
 	if (!buffer.empty()) {
 		args.push_back(buffer);
+	}
+
+	// Variable substitution
+	for (auto& arg : args) {
+		size_t start = arg.find("$(");
+		if (start != std::string::npos) {
+			size_t end = arg.find(")", start);
+			if (end != std::string::npos) {
+				std::string variable = arg.substr(start + 2, end - (start + 2));
+				if (variable.find(" ") != std::string::npos) {
+					info::error("Variable cannot contain spaces!");
+					return {};
+				}
+				auto value = get_value(variable);
+				if (std::holds_alternative<std::string>(value)) {
+					arg.replace(start, end - start + 1, std::get<std::string>(value));
+				}
+			}
+		}
 	}
 
 	return args;

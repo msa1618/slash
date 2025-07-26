@@ -8,6 +8,7 @@
 #include "../abstractions/iofuncs.h"
 #include "../builtin-cmds/cd.h"
 #include "../builtin-cmds/var.h"
+#include "../builtin-cmds/alias.h"
 #include "startup.h"
 #include <nlohmann/json.hpp>
 
@@ -40,64 +41,77 @@ bool print_exit_code() {
 #pragma endregion
 
 int pipe_execute(std::vector<std::vector<std::string>> commands) {
-	int n = commands.size();
-	std::vector<int> pipefds(2 * (n - 1)); // Two file descriptors per pipe
+    int n = commands.size();
+    if (n == 0) return 0;
 
-	// Create all necessary pipes
-	for (int i = 0; i < n - 1; ++i) {
-		if (pipe(&pipefds[2 * i]) < 0) {
-			info::error("Failed to create pipe", errno);
-			return -1;
-		}
-	}
+    std::vector<int> pipefds(2 * (n - 1)); // Two fds per pipe
+    std::vector<pid_t> pids;
 
-	for (int i = 0; i < n; ++i) {
-		pid_t pid = fork();
-		if (pid == -1) {
-			info::error("Fork failed", errno);
-			return -1;
-		}
+    // Create pipes
+    for (int i = 0; i < n - 1; ++i) {
+        if (pipe(&pipefds[2 * i]) < 0) {
+            info::error("Failed to create pipe", errno);
+            return -1;
+        }
+    }
 
-		if (pid == 0) { // Child process
-			// If not the first command, read from previous pipe
-			if (i != 0) {
-				dup2(pipefds[2 * (i - 1)], STDIN_FILENO);
-			}
-			// If not the last command, write to next pipe
-			if (i != n - 1) {
-				dup2(pipefds[2 * i + 1], STDOUT_FILENO);
-			}
+    for (int i = 0; i < n; ++i) {
+        pid_t pid = fork();
+        if (pid == -1) {
+            info::error("Fork failed", errno);
+            return -1;
+        }
 
-			// Close all pipe fds in child
-			for (int fd : pipefds) close(fd);
+        if (pid == 0) { // Child
+            // If not first command, set stdin to read end of previous pipe
+            if (i != 0) {
+                dup2(pipefds[2 * (i - 1)], STDIN_FILENO);
+            }
+            // If not last command, set stdout to write end of current pipe
+            if (i != n - 1) {
+                dup2(pipefds[2 * i + 1], STDOUT_FILENO);
+            }
 
-			// Build argv
-			std::vector<char*> argv;
-			for (auto& arg : commands[i]) {
-				argv.push_back(const_cast<char*>(arg.c_str()));
-			}
-			argv.push_back(nullptr);
+            // Close all pipe fds in child (they are duplicated if needed)
+            for (int fd : pipefds) close(fd);
 
-			// Execute
-			execvp(argv[0], argv.data());
+            // Build argv
+            std::vector<char*> argv;
+            for (auto& arg : commands[i]) {
+                argv.push_back(const_cast<char*>(arg.c_str()));
+            }
+            argv.push_back(nullptr);
 
-			// If execvp fails
-			std::string error = "Execution failed: " + std::string(strerror(errno));
-			info::error(error, errno);
-			exit(errno);
-		}
-	}
+            // Execute command
+            execvp(argv[0], argv.data());
 
-	// Parent process: close all fds
-	for (int fd : pipefds) close(fd);
+            // If execvp fails
+            std::string error = "Failed to execute \"" + std::string(argv[0]) + "\": " + strerror(errno);
+            info::error(error, errno);
+            exit(errno);
+        }
 
-	// Wait for all children
-	for (int i = 0; i < n; ++i) {
-		int status;
-		wait(&status);
-	}
+        pids.push_back(pid);
+    }
 
-	return 0;
+    // Parent closes all pipe fds
+    for (int fd : pipefds) close(fd);
+
+    // Wait for all children
+    int exit_status = 0;
+    for (pid_t pid : pids) {
+        int status;
+        if (waitpid(pid, &status, 0) == -1) {
+            info::error("waitpid failed", errno);
+            return -1;
+        }
+        if (WIFEXITED(status)) {
+            int code = WEXITSTATUS(status);
+            if (code != 0) exit_status = code; // capture last non-zero exit code
+        }
+    }
+
+    return exit_status;
 }
 
 int execute(std::vector<std::string> args, bool save_to_history) {
@@ -140,7 +154,7 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 	}
 
 	if (args[0] == "cd") {
-		args.erase(args.begin()); // Avoid executing "cd cd [args]"
+		// Avoid executing "cd cd [args]"
 		cd(args);
 		return 0;
 	}
@@ -149,6 +163,11 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 		args.erase(args.begin());
 		var(args);
 		return 0;
+	}
+
+	if(args[0] == "alias") {
+		args.erase(args.begin());
+		return alias(args);
 	}
 
 	pid_t pid = fork();
@@ -177,7 +196,7 @@ int execute(std::vector<std::string> args, bool save_to_history) {
 		}
 
 		// If execvp or execv fail
-		std::string err = std::string("\"" + args[0] + "\"" + "Execution failed: ") + strerror(errno);
+		std::string err = std::string("\"" + args[0] + "\"" + "Failed to execute \"" + args[0] + "\": ") + strerror(errno);
 		info::error(err, errno);
 		exit(errno); // terminate child
 	} else {
