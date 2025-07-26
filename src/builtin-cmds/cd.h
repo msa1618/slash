@@ -6,7 +6,7 @@
 #include <vector>
 
 int create_alias(std::string name, std::string dirpath);
-std::variant<std::string, int> get_alias(std::string alias);
+std::variant<std::string, int> get_cd_alias(std::string alias);
 int cd(std::vector<std::string> args);
 
 #endif // AMBER_CD_H

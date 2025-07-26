@@ -10,7 +10,7 @@
 
 #pragma region helpers
 
-std::variant<std::string, int> get_alias(std::string alias) {
+std::variant<std::string, int> get_cd_alias(std::string alias) {
 	auto contents = io::read_file(slash_dir + "/.cd_aliases");
 	if(std::holds_alternative<int>(contents)) {
 		std::string err = std::string("Failed to read .cd_aliases: ") + strerror(errno);
@@ -38,7 +38,7 @@ int create_alias(std::string name, std::string dirpath) {
 
 	//////////
 
-	auto existing = get_alias(name);
+	auto existing = get_cd_alias(name);
 	bool aliasExists = std::holds_alternative<std::string>(existing);
 
 	if(aliasExists) {
@@ -85,7 +85,7 @@ int create_alias(std::string name, std::string dirpath) {
 	}
 }
 
-void list_aliases() {
+void list_cd_aliases() {
 	std::string home = getenv("HOME");
 	auto aliases = io::read_file(home + "/.slash/.cd_aliases");
 	if(!std::holds_alternative<std::string>(aliases)) {
@@ -146,7 +146,7 @@ int cd(std::vector<std::string> args) {
 
 		if(arg == "--create-alias" || arg == "-c") create_alias_mode = true;
 		if(arg == "--list-aliases" || arg == "-la") {
-			list_aliases();
+			list_cd_aliases();
 			return 0;
 		}
 	}
@@ -163,7 +163,7 @@ int cd(std::vector<std::string> args) {
 	}
 
 	if(args[1].starts_with("@")) {
-		auto alias = get_alias(args[1].substr(1));
+		auto alias = get_cd_alias(args[1].substr(1));
 		if(std::holds_alternative<std::string>(alias)) {
 			if(chdir(std::get<std::string>(alias).c_str()) != 0) {
 				info::error("Failed to change directory to alias path");
