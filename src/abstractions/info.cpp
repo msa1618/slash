@@ -24,7 +24,7 @@ namespace info {
 			ss << "- " << file_affected;
 		}
 		ss << '\n';
-		io::print(ss.str());
+		io::print_err(ss.str());
 	}
 
 	void debug(std::string content) {

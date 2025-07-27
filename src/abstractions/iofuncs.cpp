@@ -10,8 +10,8 @@ void io::print(std::string text) {
 	write(STDOUT, text.c_str(), text.length());
 }
 
-void io::print_err(const char *text) {
-	write(STDERR, text, strlen(text));
+void io::print_err(std::string text) {
+	write(STDERR, text.c_str(), strlen(text.c_str()));
 }
 
 std::vector<std::string> io::split(const std::string& s, std::string delimiter) {
@@ -47,7 +47,7 @@ void io::replace_all(std::string& str, const std::string& from, const std::strin
 }
 
 std::string io::center(std::string text, int width) {
-	int pad = ceil(width / 4);
+	int pad = ceil(width / 6);
 
 	return std::string(pad, ' ') + text + std::string(pad, ' ');
 }
@@ -58,7 +58,7 @@ std::variant<std::string, int> io::read_file(std::string filepath) {
 		return errno;
 	}
 
-	char buffer[1024];
+	char buffer[100'000];
 	ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
 	if(bytesRead < 0) {
 		return errno;

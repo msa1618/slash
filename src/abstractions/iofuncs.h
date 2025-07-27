@@ -11,7 +11,7 @@
 
 namespace io {
 	void print(std::string text);
-	void print_err(const char* text);
+	void print_err(std::string text);
 
 
 	std::string join(std::vector<std::string> vec, std::string joiner);
