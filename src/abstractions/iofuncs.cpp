@@ -28,7 +28,6 @@ std::vector<std::string> io::split(const std::string& s, std::string delimiter) 
 	return tokens;
 }
 
-
 std::string io::join(std::vector<std::string> vec, std::string joiner) {
 	std::stringstream ss;
 	for(auto elm : vec) {
@@ -98,6 +97,15 @@ int io::overwrite_file(std::string filepath, std::string content) {
 		info::error(strerror(errno), errno, filepath);
 	}
 
+	close(fd);
+	return 0;
+}
+
+int io::create_file(std::string path) {
+	int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0644);
+	if(fd < 0) {
+		return errno;
+	}
 	close(fd);
 	return 0;
 }
