@@ -88,7 +88,6 @@ int main(int argc, char* argv[]) {
 	while(true) {
 		std::string input = print_prompt();
 		if(input.empty()) continue;
-		if(input == "exit") exit(0);
 
 		std::vector<std::string> args = parse_arguments(input);
 
