@@ -8,6 +8,62 @@
 #include "abstractions/iofuncs.h"
 #include "abstractions/info.h"
 
+void exec(std::vector<std::string> args, std::string raw_input, bool save_to_history) {
+	if(args[0] == "exit") {
+		disable_raw_mode();
+		fflush(stdout);
+		exit(0);
+	}
+
+	std::vector<std::string> commands;
+
+	// Priority:
+	// 1. Semicolons: They separate commands, and execute them regardless of the first command's success or failure.
+	// 2. AND (&&): Executes the next command only if the previous command succeeded (exit code 0).
+	// 3. OR (||): Executes the next command only if the previous command failed
+	// 4. Pipes
+	// 5. Normal command execution
+
+	if(io::split(raw_input, ";").size() > 1) {
+		for(auto cmd : io::split(raw_input, ";")) {
+			cmd = io::trim(cmd);
+			exec(parse_arguments(cmd), cmd, save_to_history);
+		}
+		return;
+	}
+
+	if(io::split(raw_input, "&&").size() > 1) {
+		for(auto cmd : io::split(raw_input, "&&")) {
+			cmd = io::trim(cmd);
+			if(execute(parse_arguments(cmd), cmd, save_to_history) == 0) {
+				continue;
+			} else break;
+		}
+		return;
+	}
+
+	if(io::split(raw_input, "||").size() > 1) {
+		for(auto cmd : io::split(raw_input, "||")) {
+			cmd = io::trim(cmd);
+			if(execute(parse_arguments(cmd), cmd, save_to_history) != 0) {
+				continue;
+			} else break;
+		}
+	}
+
+	if(io::split(raw_input, "|").size() > 1) {
+		std::vector<std::vector<std::string>> commands;
+		for(auto& cmd : io::split(raw_input, "|")) {
+			cmd = io::trim(cmd);
+			commands.push_back(parse_arguments(cmd));
+		}
+		pipe_execute(commands);
+		return;
+	}
+
+  execute(args, raw_input, save_to_history);
+}
+
 int main(int argc, char* argv[]) {
 	signal(SIGINT, SIG_IGN);
 
@@ -36,23 +92,12 @@ int main(int argc, char* argv[]) {
 
 		std::vector<std::string> args = parse_arguments(input);
 
-		if(io::vecContains(args, "|")) {
-			disable_raw_mode();
-			signal(SIGINT, SIG_DFL);
-			std::vector<std::vector<std::string>> commands;
-			for(auto& cmd : args) {
-				cmd = io::trim(cmd);
-				std::vector<std::string> args = parse_arguments(cmd);
-				commands.push_back(args);
-			}
-			pipe_execute(commands);
-		} else {
-			disable_raw_mode();
-			signal(SIGINT, SIG_DFL);
-			execute(parse_arguments(input), input, true);
-		}
+		exec(args, input, true);
 		enable_raw_mode();
 
 		signal(SIGINT, SIG_IGN);
 	}
+
+	disable_raw_mode();
+	return 0;
 }
