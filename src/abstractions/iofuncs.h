@@ -1,5 +1,5 @@
-#ifndef AMBER_IOFUNCS_H
-#define AMBER_IOFUNCS_H
+#ifndef SLASH_IOFUNCS_H
+#define SLASH_IOFUNCS_H
 
 #include <unistd.h>
 #include "definitions.h"
@@ -12,7 +12,7 @@
 namespace io {
 	void print(std::string text);
 	void print_err(std::string text);
-
+	void print_right(std::string text);
 
 	std::string join(std::vector<std::string> vec, std::string joiner);
 	std::vector<std::string> split(const std::string &s, std::string delimiter);
@@ -45,4 +45,4 @@ namespace io {
 	};
 }
 
-#endif //AMBER_IOFUNCS_H
+#endif //SLASH_IOFUNCS_H

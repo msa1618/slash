@@ -2,6 +2,9 @@
 #include "core/prompt.h"
 #include "core/startup.h"
 #include "core/parser.h"
+#include "abstractions/json.h"
+
+#include "builtin-cmds/cd.h"
 
 #include <signal.h>
 
@@ -13,6 +16,12 @@ void exec(std::vector<std::string> args, std::string raw_input, bool save_to_his
 		disable_raw_mode();
 		fflush(stdout);
 		exit(0);
+	}
+
+	if(args[0] == "cd") {
+		info::debug("Running cd..");
+		cd(args);
+		return;
 	}
 
 	std::vector<std::string> commands;
@@ -67,6 +76,8 @@ void exec(std::vector<std::string> args, std::string raw_input, bool save_to_his
 int main(int argc, char* argv[]) {
 	signal(SIGINT, SIG_IGN);
 
+	auto cnt = get_json("/home/aetheros/.slash/config/prompts/default.json");
+
 	if(argc > 1) {
 		std::vector<std::string> args;
 		args.reserve(argc - 1);
@@ -81,13 +92,13 @@ int main(int argc, char* argv[]) {
 		execute(args, io::join(original_args, " "), true);
 		return 0;
 	}
-
-	enable_raw_mode();
+	
 	execute_startup_commands();
+	enable_raw_mode();
 
 	while(true) {
-		std::string input = print_prompt();
-		if(input.empty()) continue;
+		std::string input = print_prompt(cnt);
+		if(input.empty() || input.starts_with("#") || input.starts_with("//")) continue;
 
 		std::vector<std::string> args = parse_arguments(input);
 

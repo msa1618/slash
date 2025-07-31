@@ -8,6 +8,7 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 
+/*
 #pragma region helpers
 
 std::variant<std::string, int> get_cd_alias(std::string alias) {
@@ -33,7 +34,6 @@ int create_alias(std::string name, std::string dirpath) {
 
 	std::string home_dir = getenv("HOME");
 	std::string aliases_path = home_dir + "/.slash/.cd_aliases";
-	info::debug(aliases_path);
 	std::string line = "@" + name + " = " + dirpath + "\n";
 
 	//////////
@@ -122,8 +122,11 @@ void list_cd_aliases() {
 
 #pragma endregion
 
+*/
+
 int cd(std::vector<std::string> args) {
-	if(args.empty()) {
+	for(auto& arg : args) info::debug(arg);
+	if(args.size() > 2) {
 		io::print("cd: change directory\n"
 							"usage: cd <directory>\n"
 							"flags:\n"
@@ -141,12 +144,12 @@ int cd(std::vector<std::string> args) {
 	for(auto& arg : args) {
 		if(!io::vecContains(valid_args, arg) && arg.starts_with('-')) {
 			info::error("Invalid argument");
-			return -1;
+			return EINVAL;
 		}
 
 		if(arg == "--create-alias" || arg == "-c") create_alias_mode = true;
 		if(arg == "--list-aliases" || arg == "-la") {
-			list_cd_aliases();
+			//l//ist_cd_aliases();
 			return 0;
 		}
 	}
@@ -156,13 +159,15 @@ int cd(std::vector<std::string> args) {
 			std::string alias_name = args[2];
 			std::string path = args[3];
 			if(!alias_name.empty() && !path.empty()) {
-				create_alias(alias_name, path);
+				//create_alias(alias_name, path);
 				return 0;
 			}
 		}
 	}
 
-	if(args[1].starts_with("@")) {
+	if(args.size() > 2) {
+		/*
+		if(args[1].starts_with("@")) {
 		auto alias = get_cd_alias(args[1].substr(1));
 		if(std::holds_alternative<std::string>(alias)) {
 			if(chdir(std::get<std::string>(alias).c_str()) != 0) {
@@ -171,6 +176,7 @@ int cd(std::vector<std::string> args) {
 			}
 			return 0;
 		}
+		
 
 		if(std::holds_alternative<int>(alias)) {
 			int code = std::get<int>(alias);
@@ -179,6 +185,7 @@ int cd(std::vector<std::string> args) {
 				return -1;
 			}
 		}
+			*/
 	}
 
 

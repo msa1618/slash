@@ -3,15 +3,33 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sstream>
+#include <regex>
 #include <iostream>  // For isprint
 #include <cstring>   // For strerror
+#include <optional>
 #include "../abstractions/definitions.h"
 #include "../git/git.h"
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
+#include "../abstractions/json.h"
+#include "../abstractions/json.hpp"
+#include "../slash-utils/syntax_highlighting/helper.h"
+
 #include "execution.h"
 
+#include <sys/ioctl.h>
+#include <grp.h>
+#include "parser.h"
+
 #pragma region helpers
+
+std::string rgb_to_ansi(std::array<int, 3> rgb) {
+	int r = rgb[0], g = rgb[1], b = rgb[2];
+	if(r == 256 || g == 256 || b == 256) return "";
+	std::stringstream res;
+	res << "\x1b[38;2;" << r << ";" << g << ";" << b << "m";
+	return res.str();
+}
 
 bool is_ssh_server() {
 	return getenv("SSH_CONNECTION") != nullptr || getenv("SSH_CLIENT") != nullptr || getenv("SSH_TTY") != nullptr;
@@ -37,6 +55,260 @@ std::string get_battery_interface_path() {
 }
 
 #pragma endregion
+
+std::string get_time_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if(j.empty()) {
+		return "<failed>";
+	}
+	auto showSeconds = get_bool(j, "showSeconds", "time");
+	auto use24hr = get_bool(j, "twentyfourhr", "time");
+	auto color = get_int_array3(j, "color", "time");
+	auto bold = get_bool(j, "bold", "time").value_or(false);
+
+	auto after = get_string(j, "after", "time");
+	auto before = get_string(j, "before", "time");
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256}) {
+		ansi = rgb_to_ansi(*color);
+	}
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	time_t t = time(nullptr);
+	struct tm* now = localtime(&t);
+	char buffer[16];
+
+	if (showSeconds) {
+		if (use24hr)
+			strftime(buffer, sizeof(buffer), "%H:%M:%S", now);
+		else
+			strftime(buffer, sizeof(buffer), "%I:%M:%S %p", now);
+	} else {
+		if (use24hr)
+			strftime(buffer, sizeof(buffer), "%H:%M", now);
+		else
+			strftime(buffer, sizeof(buffer), "%I:%M %p", now);
+	}
+
+	std::stringstream res;
+	res << ansi << *before << std::string(buffer) << *after << reset;
+
+	return res.str();
+}
+
+std::string get_user_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "user");
+	if (!enabled || !*enabled) return "";
+
+	std::string user = getenv("USER") ?: "";
+	auto after = get_string(j, "after", "user").value_or("");
+	auto color = get_int_array3(j, "color", "user");
+	auto bold = get_bool(j, "bold", "user").value_or(false);
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256})
+		ansi = rgb_to_ansi(*color);
+
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	return ansi + user + after + reset;
+}
+
+std::string get_group_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "group");
+	if (!enabled || !*enabled) return "";
+
+	gid_t gid = getgid();
+	struct group *grp = getgrgid(gid);
+	std::string group = grp ? grp->gr_name : "";
+
+	auto after = get_string(j, "after", "group").value_or("");
+	auto color = get_int_array3(j, "color", "group");
+	auto bold = get_bool(j, "bold", "group").value_or(false);
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256})
+		ansi = rgb_to_ansi(*color);
+
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	return ansi + group + after + reset;
+}
+
+std::string get_hostname_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "hostname");
+	if (!enabled || !*enabled) return "";
+
+	char hostname[256];
+	gethostname(hostname, sizeof(hostname));
+
+	auto after = get_string(j, "after", "hostname").value_or("");
+	auto color = get_int_array3(j, "color", "hostname");
+	auto bold = get_bool(j, "bold", "hostname").value_or(false);
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256})
+		ansi = rgb_to_ansi(*color);
+
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	return ansi + std::string(hostname) + after + reset;
+}
+
+std::string get_ssh_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "ssh");
+	if (!enabled || !*enabled) return "";
+
+	if (!is_ssh_server()) return "";
+
+	auto after = get_string(j, "after", "ssh").value_or("");
+	auto text = get_string(j, "text", "ssh").value_or("ssh");
+	auto color = get_int_array3(j, "color", "ssh");
+	auto bold = get_bool(j, "bold", "ssh").value_or(false);
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256})
+		ansi = rgb_to_ansi(*color);
+
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	return ansi + text + after + reset;
+}
+
+std::string get_git_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "git-branch");
+	if (!enabled || !*enabled) return "";
+
+	char cwd_buffer[512];
+	std::string cwd = getcwd(cwd_buffer, sizeof(cwd_buffer));
+	GitRepo repo(cwd);
+	std::string branch = repo.get_branch_name();
+	if (branch.empty()) return "";
+
+	auto after = get_string(j, "after", "git-branch").value_or("");
+	auto color = get_int_array3(j, "color", "git-branch");
+	auto bold = get_bool(j, "bold", "git-branch").value_or(false);
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256})
+		ansi = rgb_to_ansi(*color);
+
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	return ansi + branch + after + reset;
+}
+
+std::string get_cwd_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "currentdir");
+	if (!enabled || !*enabled) return "";
+
+	auto color = get_int_array3(j, "color", "currentdir");
+	auto after = get_string(j, "after", "currentdir").value_or("");
+	auto bold = get_bool(j, "bold", "currentdir").value_or(false);
+
+	char buffer[512];
+	std::string cwd = getcwd(buffer, sizeof(buffer));
+	std::string home_str = getenv("HOME");
+
+	if (cwd.starts_with(home_str))
+		cwd.replace(0, home_str.size(), "~");
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256})
+		ansi = rgb_to_ansi(*color);
+
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	return ansi + cwd + after + reset;
+}
+
+std::string get_prompt_segment() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return "";
+
+	auto enabled = get_bool(j, "enabled", "prompt");
+	if (!enabled || !*enabled) return "";
+
+	auto color = get_int_array3(j, "color", "prompt");
+	auto after = get_string(j, "after", "prompt").value_or("");
+	auto character = get_string(j, "character", "prompt").value_or(">");
+	auto bold = get_bool(j, "bold", "prompt").value_or(false);
+	auto newlineBefore = get_bool(j, "newlineBefore", "prompt").value_or(false);
+	auto newlineAfter = get_bool(j, "newlineAfter", "prompt").value_or(false);
+
+	std::string ansi;
+	if (color && *color != std::array<int, 3>{256, 256, 256}) {
+		ansi = rgb_to_ansi(*color);
+	}
+	if (bold) ansi = "\x1b[1m" + ansi;
+
+	std::stringstream out;
+
+	if (newlineBefore) out << "\n";
+	out << ansi << character << after << reset;
+	if (newlineAfter) out << "\n";
+
+	return out.str();
+}
+
+std::string highl(std::string prompt) {
+	// Right now it's hardcoded. No matter how hard I tried, I couldn't get JSON to work with it.
+	// It's better than no highlighting tho :)
+	std::regex quotes("\"[^\"]*\"");
+	std::regex comments("\\#.*");
+	std::regex operators(">>|&&|\\|\\||[|&>]");
+	std::regex paths("(/[^\\s|&><#\"]+)|(\\.{1,2}(/[^\\s|&><#\"]*)*)|(~)");
+	std::regex flags("-[A-Za-z0-9\\-_]+");
+	std::regex bools("(true|false)");
+	std::regex numbers("[0-9]");
+
+	const std::string cmd_color     = "\x1b[38;2;42;157;143m";  // teal
+	const std::string bool_color    = "\x1b[38;2;52;25;25m";    // dark red
+	const std::string number_color  = "\x1b[38;2;52;160;164m";  // teal
+	const std::string flag_color    = "\x1b[38;2;131;197;190m"; // light teal
+	const std::string path_color    = "\x1b[38;2;221;161;94m";  // orange
+	const std::string comment_color = "\x1b[38;2;73;80;87m";    // gray
+	const std::string quote_color   = "\x1b[38;2;88;129;87m";   // green
+
+	std::vector<std::pair<std::regex, std::string>> patterns = {
+			{bools, bool_color},
+			{numbers, number_color},
+			{flags, flag_color},
+			{paths, path_color},
+			{comments, comment_color},
+			{quotes, quote_color}
+	};
+
+	return highlight(prompt, patterns);
+}
+
 
 std::variant<std::string, int> read_input(int& history_index) {
 	std::string buffer;
@@ -87,7 +359,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 					if (std::holds_alternative<int>(history)) {
 						std::string err = std::string("Failed to fetch history: ") + strerror(errno);
 						info::error(err, errno, "~/.slash/.slash_history");
-						return -1;
+						return errno;
 					}
 					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
 					if (commands.empty()) break;
@@ -99,7 +371,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 					io::print("\x1b[2K\r"); // Clear whole line and move cursor to beginning of the current line
 					io::print(gray + "> ");
 					io::print(reset);
-					io::print(command);
+					io::print(highl(command));
 					char_pos = (int) command.length();
 					buffer = command;
 					break;
@@ -111,7 +383,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 					if (std::holds_alternative<int>(history)) {
 						std::string err = std::string("Failed to fetch history: ") + strerror(errno);
 						info::error(err, errno, "~/.slash/.slash_history");
-						return -1;
+						return errno;
 					}
 					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
 					if (commands.empty()) break;
@@ -123,7 +395,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 					io::print("\x1b[2K\r"); // Clear whole line and move cursor to beginning of the current line
 					io::print(gray + "> ");
 					io::print(reset);
-					io::print(command);
+					io::print(highl(command));
 					char_pos = (int) command.length();
 					buffer = command;
 					break;
@@ -144,70 +416,69 @@ std::variant<std::string, int> read_input(int& history_index) {
 					break;
 				}
 			}
+
 			continue;
 		}
 
 		if(isprint(static_cast<unsigned char>(c))) {
 			buffer.insert(buffer.begin() + char_pos, c);
-			io::print(buffer.substr(char_pos));
 			char_pos++;
-			// Move cursor back after printing tail
-			for(size_t i = 1; i < buffer.size() - char_pos + 1; ++i) {
+
+			// Move cursor to correct position
+			int cursor_back = buffer.length() - char_pos;
+			for(int i = 0; i < cursor_back; ++i)
 				io::print("\b");
-			}
 		}
+
+			// Clear line and reprint everything with syntax highlight
+			io::print("\x1b[2K\r"); // clear line
+			io::print(gray + "> " + reset);
+			io::print(highl(buffer));
 	}
 
 	return buffer;
 }
 
-std::string print_prompt() {
+std::string print_prompt(nlohmann::json& j) {
 	char buffer[512];
 	std::string cwd = getcwd(buffer, sizeof(buffer));
-
-	GitRepo repo(cwd);
-
-	bool ssh = is_ssh_server();
-	std::string branch = repo.get_branch_name();
-
-	std::string battery_path = get_battery_interface_path();
-	std::string bc_path = battery_path.empty() ? "" : battery_path + "/capacity";
-	auto btr_capacity = battery_path.empty() ? std::variant<std::string, int>{-1} : io::read_file(bc_path);
-
-	std::string bs_path = battery_path.empty() ? "" : battery_path + "/status";
-	auto btr_status = battery_path.empty() ? std::variant<std::string, int>{-1} : io::read_file(bs_path);
-
 	std::stringstream prompt;
 
-	std::string home = getenv("HOME");
-	if (cwd.starts_with(home)) {
-		cwd.replace(0, home.length(), "~");
-	}
-	prompt << slash_color << cwd << reset << " ";
-	prompt << orange << branch << reset << " ";
+	if (j.empty()) return "";
 
-	if(std::holds_alternative<std::string>(btr_capacity)) {
-		int btr = std::stoi(std::get<std::string>(btr_capacity));
-		std::string battery_color = green;
-		if(btr < 50 && btr > 20) battery_color = yellow;
-		if(btr <= 20) battery_color = red;
+	std::vector<std::string> user_group_name;
 
-		prompt << battery_color << btr << "% " << reset;
+	auto time_enabled = get_bool(j, "enabled", "time");
+	auto align_right = get_bool(j, "alignRight", "time");
+
+	if (time_enabled && *time_enabled) {
+    if (!align_right && *align_right) {
+        prompt << get_time_segment();
+    }
 	}
 
-	if(ssh) {
-		prompt << green << "ssh" << reset;
-	}
+	if (get_bool(j, "enabled", "user")) prompt << get_user_segment();
+	if (get_bool(j, "enabled", "group")) prompt << get_group_segment();
+	if (get_bool(j, "enabled", "hostname")) prompt << get_hostname_segment();
+	if (get_bool(j, "enabled", "currentdir")) prompt << get_cwd_segment();
+	if (get_bool(j, "enabled", "git-branch")) prompt << get_git_segment();
+	if (get_bool(j, "enabled", "ssh")) { prompt << get_ssh_segment(); }
 
 	io::print(prompt.str());
-	io::print("\n");
-	io::print(gray);
-	io::print("> ");
-	io::print(reset);
+
+	if (time_enabled && *time_enabled) {
+    if (align_right && *align_right) {
+        io::print_right(get_time_segment());
+    }
+	}
+
+	if (get_bool(j, "enabled", "prompt") == true) {
+		io::print(get_prompt_segment());
+	}
 
 	int history_index = 0;
 	auto input = read_input(history_index);
-	if(std::holds_alternative<int>(input)) {
+	if (std::holds_alternative<int>(input)) {
 		info::error(strerror(errno), errno);
 		return "";
 	}
@@ -215,3 +486,4 @@ std::string print_prompt() {
 	std::string input_str = std::get<std::string>(input);
 	return input_str;
 }
+

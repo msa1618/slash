@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <cstring>
 #include <variant>
+#include <sys/ioctl.h>
+#include <regex>
 
 void io::print(std::string text) {
 	write(STDOUT, text.c_str(), text.length());
@@ -12,6 +14,26 @@ void io::print(std::string text) {
 
 void io::print_err(std::string text) {
 	write(STDERR, text.c_str(), strlen(text.c_str()));
+}
+
+void io::print_right(std::string text) {
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    int cols = w.ws_col;
+
+		auto strip_ansi = [](std::string str){
+			std::regex ansi_regex(R"(\x1b\[[0-9;]*m)");
+			return std::regex_replace(str, ansi_regex, "");
+		};
+
+    int text_length = strip_ansi(text).length();
+    int target_col = cols - text_length;
+
+    if (target_col < 1) target_col = 1;
+
+    // Move to column `target_col`
+    io::print("\x1b[" + std::to_string(target_col) + "G");
+    io::print(text);
 }
 
 std::vector<std::string> io::split(const std::string& s, std::string delimiter) {

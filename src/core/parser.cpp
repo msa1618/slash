@@ -3,8 +3,35 @@
 #include "../abstractions/iofuncs.h"
 #include "../builtin-cmds/var.h"
 #include "../builtin-cmds/alias.h"
+#include <regex>
 
-Args parse_arguments(const std::string& command) {
+std::string remove_comments_outside_quotes(const std::string& input) {
+    bool in_single_quote = false;
+    bool in_double_quote = false;
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        char c = input[i];
+
+        if (c == '\'' && !in_double_quote) {
+            in_single_quote = !in_single_quote;
+        } else if (c == '"' && !in_single_quote) {
+            in_double_quote = !in_double_quote;
+        }
+
+        if (!in_single_quote && !in_double_quote) {
+            if (c == '#') {
+                return input.substr(0, i);
+            }
+        }
+    }
+
+    return input;
+}
+
+Args parse_arguments(std::string command) {
+	command = io::trim(command);
+	command = remove_comments_outside_quotes(command);
+	if(command.empty()) return {};
 	std::string buffer;
 	Args args;
 
