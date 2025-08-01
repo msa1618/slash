@@ -421,21 +421,41 @@ std::variant<std::string, int> read_input(int& history_index) {
 		}
 
 		if(isprint(static_cast<unsigned char>(c))) {
-			buffer.insert(buffer.begin() + char_pos, c);
-			char_pos++;
+    if(c == '\'' || c == '"') {
+        buffer.insert(buffer.begin() + char_pos, c);      // insert first quote
+        buffer.insert(buffer.begin() + char_pos, c);      // insert second quote
+        char_pos++;                                       // move cursor inside quotes
 
-			// Move cursor to correct position
-			int cursor_back = buffer.length() - char_pos;
-			for(int i = 0; i < cursor_back; ++i)
-				io::print("\b");
-		}
+        // Clear line and reprint everything with syntax highlight
+        io::print("\x1b[2K\r"); // clear line
+        io::print(gray + "> " + reset);
+        io::print(highl(buffer));
 
-			// Clear line and reprint everything with syntax highlight
-			io::print("\x1b[2K\r"); // clear line
-			io::print(gray + "> " + reset);
-			io::print(highl(buffer));
+        // Move cursor back to position inside quotes
+        int cursor_back = buffer.length() - char_pos;
+        if (cursor_back > 0) {
+            std::stringstream move_left;
+            move_left << "\x1b[" << cursor_back << "D";
+            io::print(move_left.str());
+        }
+    } else {
+        buffer.insert(buffer.begin() + char_pos, c);
+        char_pos++;
+
+        io::print("\x1b[2K\r"); // clear line
+        io::print(gray + "> " + reset);
+        io::print(highl(buffer));
+
+        int cursor_back = buffer.length() - char_pos;
+        if (cursor_back > 0) {
+            std::stringstream move_left;
+            move_left << "\x1b[" << cursor_back << "D";
+            io::print(move_left.str());
+        }
+    }
+}
+
 	}
-
 	return buffer;
 }
 
