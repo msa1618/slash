@@ -70,6 +70,29 @@ void exec(std::vector<std::string> args, std::string raw_input, bool save_to_his
 		return;
 	}
 
+	if (raw_input.find(">") != std::string::npos || raw_input.find("2>") != std::string::npos) {
+    std::string trimmed_input = io::trim(raw_input);
+
+    bool is_stdout = trimmed_input.find("2>") == std::string::npos;
+    bool append = trimmed_input.find(">>") != std::string::npos;
+
+    // Split on '>', '>>', or '2>' to extract command and file path
+    std::string redirect_op = append ? ">>" : (is_stdout ? ">" : "2>");
+    std::vector<std::string> parts = io::split(trimmed_input, redirect_op);
+    if (parts.size() != 2) {
+        info::error("Invalid redirection syntax", 1);
+        return;
+    }
+
+    std::string command_part = io::trim(parts[0]);
+    std::string path_part = io::trim(parts[1]);
+
+    std::vector<std::string> new_args = parse_arguments(command_part);
+
+    redirect(new_args, command_part, save_to_history, path_part, append, is_stdout);
+    return;
+}
+
   execute(args, raw_input, save_to_history);
 }
 

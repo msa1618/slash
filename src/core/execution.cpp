@@ -14,7 +14,8 @@
 
 #pragma region helpers
 
-bool print_exit_code() {
+void print_exit_code_if_enabled(int code) {
+	bool pec = false;
 	auto settings = io::read_file(slash_dir + "/config/settings.json");
 	nlohmann::json json;
 
@@ -24,21 +25,94 @@ bool print_exit_code() {
 		std::stringstream error;
 		error << "Failed to open settings.json: " << strerror(errno);
 		info::error(error.str(), errno, "settings.json");
-		return false;
+		return;
 	}
 
 	if(json.contains("printExitCodeWhenProgramExits")) {
-		bool value = json["printExitCodeWhenProgramExits"];
-		return value;
+	 	pec = json["printExitCodeWhenProgramExits"];
 	} else {
 		info::error("Missing \"printExitCodeWhenProgramExits\" property in settings");
-		return false;
+		return;
 	}
 
-	return false;
+	if(!pec) return;
+
+	if(code == 0) {
+		io::print(green + "[Exited with exit code 0]\n" + reset);
+	} else {
+		std::string code_str = std::to_string(code);
+		io::print(red + "[Exited with exit code " + code_str + "]\n" + reset);
+	}
+}
+
+int save_to_history(std::vector<std::string>& parsed_arg, std::string input) {
+	std::string cmd = io::split(input, " ")[0];
+	std::string full_path = getenv("HOME") + std::string("/.slash/slash-utils/") + cmd;
+	if(access(full_path.c_str(), X_OK) == 0) {
+		cmd = full_path + cmd;
+		parsed_arg[0] = cmd;
+	}
+
+	input = io::trim(input);
+	std::string history_path = getenv("HOME") + std::string("/.slash/.slash_history");
+
+	if(!io::write_to_file(history_path, input + "\n")) {
+		return errno;
+	} else return 0;
 }
 
 #pragma endregion
+
+int redirect(std::vector<std::string>& parsed_args, std::string input, bool save_to_hist, std::string path, bool append, bool stdout) {
+	if(save_to_hist) save_to_history(parsed_args, input);
+
+	bool is_slashutil = false;
+	std::string cmd = io::split(input, " ")[0];
+	std::string home = std::string(getenv("HOME"));
+	std::string full_path = home + "/.slash/slash-utils/" + cmd;
+	if(access(full_path.c_str(), X_OK) == 0) {
+		parsed_args[0] = full_path;
+		is_slashutil = true;
+	}
+	
+	pid_t pid = fork();
+	if(pid == 0) {
+		int STD_FD = stdout ? 1 : 2;
+
+		int flags = O_WRONLY | O_CREAT;
+		if(append) flags |= O_APPEND;
+		else flags |= O_TRUNC;
+
+		int fd = open(path.c_str(), flags, 0644);
+		if(fd < 0) {
+			std::string error = std::string("Failed to get file's file descriptor. If the file doesn't exist, this is not the reason. Error: ") + strerror(errno);
+			info::error(error, errno);
+			return errno;
+		}
+
+		if(dup2(fd, STD_FD) == -1) {
+			std::string error = std::string("Failed to pipe stdout/stderr to file: ") + strerror(errno);
+			info::error(error, errno);
+			return errno;
+		}
+
+		std::vector<char*> argv;
+    for (auto& arg : parsed_args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr); // execvp expects null-terminated array
+
+     // --- Execute command ---
+    //if(is_slashutil) execv(argv[0], argv.data());
+		info::debug(argv[0]);
+		execvp(argv[0], argv.data());
+
+    info::error(std::string("execvp failed: ") + strerror(errno), errno);
+    exit(errno);
+	} else if(pid > 0) {
+		int status;
+		waitpid(pid, &status, 0);
+		return WEXITSTATUS(status);
+	}
+}
 
 int pipe_execute(std::vector<std::vector<std::string>> commands) {
     int n = commands.size();
@@ -50,8 +124,9 @@ int pipe_execute(std::vector<std::vector<std::string>> commands) {
     // Create pipes
     for (int i = 0; i < n - 1; ++i) {
         if (pipe(&pipefds[2 * i]) < 0) {
+						std::string error = std::string("Failed to create pipe: ") + strerror(errno);
             info::error("Failed to create pipe", errno);
-            return -1;
+            return errno;
         }
     }
 
@@ -196,17 +271,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 		waitpid(pid, &status, 0);
 		if(WIFEXITED(status)) {
 			int errcode = WEXITSTATUS(status);
-			if(print_exit_code()) {
-				if(errcode == 0) {
-					io::print(green);
-					io::print("[Exited with exit code 0]\n");
-					io::print(reset);
-				} else {
-					io::print(red);
-					io::print("[Exited with exit code " + std::to_string(errcode) + "]\n");
-					io::print(reset);
-				}
-			}
+			print_exit_code_if_enabled(errcode);
 			return errcode;
 		}
 	}
