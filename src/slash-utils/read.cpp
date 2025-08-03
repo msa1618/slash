@@ -2,6 +2,7 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 #include "syntax_highlighting/cpp.h"
+#include "syntax_highlighting/python.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <algorithm>
@@ -50,7 +51,7 @@ class Read : public Command {
 			for(auto& arg : args) {
 				if(!io::vecContains(validArgs, arg) && arg.starts_with("-")) {
 					info::error("Invalid argument \"" + arg + "\".\n");
-					return -1;
+					return EINVAL;
 				}
 
 				if(!arg.starts_with("-")) {
@@ -66,14 +67,14 @@ class Read : public Command {
 			if(!std::holds_alternative<std::string>(rf)) {
 				std::string error = std::string("Failed to read file: ") + strerror(errno);
 				info::error(error, errno);
-				return -1;
+				return errno;
 			}
 
 			std::string content = std::get<std::string>(rf);
 			std::vector<std::string> lines = io::split(content, "\n");
 
 			for(auto& l : lines) {
-				if(show_hidden_chars) {
+				if (show_hidden_chars) {
 					std::string space = cyan + "·" + reset;
 					std::string enter = gray + "↲" + reset;
 					std::string tab = gray + "├" + std::string(indent - 2, '─') + "┤" + reset;
@@ -85,12 +86,24 @@ class Read : public Command {
 					};
 
 					std::string line;
-					for (auto& c : l) {
+					for (auto &c: l) {
 						int code = static_cast<int>(c);
-						if(c == '\n') { line += control_pics[code] + enter; continue;}
-						if(c == '\t') { line += tab; continue; }
-						if(c == ' ') { line += space; continue; }
-						if(code < 32) { line += control_pics[code]; continue; }
+						if (c == '\n') {
+							line += control_pics[code] + enter;
+							continue;
+						}
+						if (c == '\t') {
+							line += tab;
+							continue;
+						}
+						if (c == ' ') {
+							line += space;
+							continue;
+						}
+						if (code < 32) {
+							line += control_pics[code];
+							continue;
+						}
 						line += c;
 					}
 					l = line + enter;
@@ -100,6 +113,7 @@ class Read : public Command {
 			for(auto& l : lines) {
 				// Highlighting isn't implemented yet when there are hidden characters, otherwise you'll see terminal gore
 				if(path.ends_with(".cpp") && !show_hidden_chars) l = cpp_sh(l);
+				if(path.ends_with(".py") && !show_hidden_chars) l = python_sh(l);
 			}
 
 			int line_width = 0;
