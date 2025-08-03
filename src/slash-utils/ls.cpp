@@ -1,6 +1,7 @@
 #include "../command.h"
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
+#include "../git/git.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -10,235 +11,366 @@
 #include <algorithm>
 #include <math.h>
 
+#include <unordered_map>
+#include <filesystem>
+
+#include <sys/ioctl.h>
+
+#include <regex>
+
+int get_terminal_width() {
+    struct winsize w;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+        info::warning("Couldn't get the terminal width. 80 will be used\n");
+        return 80; // Fallback width
+    }
+    return w.ws_col;
+}
+
+std::string strip_ansi(std::string str) {
+    std::regex ansi("\\x1B\\[[0-9;]*[A-Za-z]");
+    return std::regex_replace(str, ansi, "");
+}
+
 class Ls : public Command {
-	private:
-		int default_print(std::string dir_path, bool print_hidden) {
-			char buffer[512];
-			const char* path;
+private:
+    std::string unknown_file = "\uea7b";
+    std::string dir          = "\uf4d3";
+    std::unordered_map<std::string, std::string> icon_map = {
+        {".cpp",  "\ue646"},   // C++ blue
+        {".c",    "\ue61e"},   // C blue
+        {".toml", "\ue6b2"},  // TOML orange-ish
+        {".html", "\ue736"},  // HTML orange
+        {".yaml", "\ue8eb"},   // YAML blue
+        {".js",   "\ue781"},  // JavaScript yellow
+        {".ts",   "\ue69d"},   // TypeScript blue
+        {".css",  "\U000f031c"},   // CSS blue
+        {".rs",   "\ue7a8"},  // Rust orange
+        {".r",    "\ue881"},   // R blue
+        {".f90",  "\U000f121a"},  // Fortran orange (approx)
+        {".swift","\ue699"},  // Swift orange
+        {".java", "\ue738"},  // Java red
+        {".kt",   "\ue634"},  // Kotlin red
+        {".ttf",  "\uf031"},  // Font gray
+        {".rb",   "\ue791"},  // Ruby red/pink
+        {".lua",  "\ue620"},   // Lua teal
+        {".fish", "\uf489"},
+        {".sh",   "\uf489"},
+        {".bash", "\uf489"},
+        {".bat",  "\uf489"},
+        {".ps",   "\uf489"},
+        {".zsh",  "\uf489"},
+        {".py",   "\ue73c"},   // Python greenish-blue
+        {".json", "\ue60b"},  // JSON yellow (like JS)
+        {".xml",  "\U000f05c0"},  // XML orange
+        {".mp4",  "\uf03d"},  // Video purple
+        {".png",  "\uf03e"},  // Image green
+        {".mp3",  "\ue638"},  // Audio red
+        {".pdf",  "\U000f0219"}   // PDF bright red
+    };
 
-			if (dir_path.empty()) {
-				path = getcwd(buffer, 512);
-			} else {
-				path = dir_path.c_str();
-			}
+    std::string get_with_icon(std::string path) {
+        std::filesystem::path p(path);
+        std::string name = p.filename().string();
+        struct stat st;
+        if (stat(path.c_str(), &st) != 0) {
+            std::string error = std::string("Failed to stat \"" + name + "\": ") + strerror(errno);
+            info::error(error, errno);
+            return "";
+        }
+        std::string type = [name, st]() -> std::string {
+            if (S_ISREG(st.st_mode))  return "file";
+            if (S_ISDIR(st.st_mode))  return "dir";
+            if (S_ISLNK(st.st_mode))  return "link";
+            if (S_ISFIFO(st.st_mode)) return "fifo";
+            if (S_ISSOCK(st.st_mode)) return "sock";
+            return "unknown";
+        }();
 
-			DIR *d = opendir(path);
-			if(!d) {
-				perror("ls");
-				return -1;
-			}
+        std::string icon = unknown_file, color = "";
+        std::string name_to_be_pushed;
 
-			struct dirent *entry;
-			int longest_name_length = 0;
+        if (type == "file") {
+            if (p.has_extension()) {
+                auto it = icon_map.find(p.extension());
+                if (it != icon_map.end()) {
+                    icon = icon_map[p.extension()];
+                }
+            }
+        }
 
-			std::vector<std::pair<std::string, std::string>> entries;
+        if (type == "dir") {
+            color = "\x1b[38;5;3m";
+            icon  = dir;
+        }
 
-			while ((entry = readdir(d)) != NULL) {
-				std::string name = entry->d_name;
-				if ((name == "." || name == "..") || (!print_hidden && name.starts_with("."))) {
-					continue;
-				}
+        if (type == "link") {
+            struct stat tmp;
+            if (stat(path.c_str(), &tmp) != 0) { // Broken symlink
+                icon = "\uf127";
+                color = "\x1b[38;5;1m";
+            } else {
+                char buf[PATH_MAX];
+                ssize_t bytesRead = readlink(path.c_str(), buf, PATH_MAX - 1);
+                if (bytesRead < 0) {
+                    icon = "\uf127";
+                    color = "\x1b[38;5;1m";
+                }
+                icon = get_with_icon(buf);
+                buf[bytesRead] = '\0';
+            }
+        }
 
-				char *type;
-				switch (entry->d_type) {
-					case DT_REG:
-						type = "file";
-						break;
-					case DT_DIR:
-						type = "dir";
-						break;
-					case DT_LNK:
-						type = "link";
-						break;
-					case DT_FIFO:
-						type = "fifo";
-						break;
-					case DT_SOCK:
-						type = "socket";
-						break;
-					default:
-						type = "other";
-						break;
-				}
+        if (type == "fifo") {
+            icon = "\U000f07e5";
+            color = "\x1b[38;5;13m";
+        }
 
-				if (strlen(entry->d_name) > longest_name_length) {
-					longest_name_length = strlen(entry->d_name);
-				}
+        if (type == "sock") {
+            icon = "\U000f0427"; // literally what does a socket look like
+            color = "\x1b[38;5;50m";
+        }
 
-				entries.emplace_back(entry->d_name, type);
-			}
+        return icon;
+    }
 
-			std::sort(entries.begin(), entries.end(), [](auto& a, auto& b) {
-				return a.second < b.second;
-			});
+    int default_print(std::string dir_path, bool print_hidden, bool with_icons, bool with_git) {
+        DIR* d = opendir(dir_path.c_str());
+        if(!d) {
+            std::string error = std::string("Failed to open directory" + dir_path + ": ") + strerror(errno);
+            info::error(error, errno);
+        }
 
-			int longest_num_width = 0;
-			for(int i = 0; i < entries.size(); i++) {
-				int i_str_l = std::to_string(i + 1).length();
-				if(i_str_l > longest_num_width) {
-					longest_num_width = i_str_l;
-				}
-			}
+        std::vector<std::tuple<std::string, int, std::string>> entries;
 
-			for (int i = 0; i < entries.size(); i++) {
-				std::string num = std::to_string(i + 1);
-				std::string name = entries[i].first;
-				std::string type = entries[i].second;
+        struct dirent* entry;
+        GitRepo repo(dir_path);
 
-				num.resize(longest_num_width, ' ');
-				name.resize(longest_name_length, ' ');
-				type.resize(7, ' ');
+        while((entry = readdir(d)) != NULL) {
+            std::string name = entry->d_name;
+            std::string fullpath = dir_path + "/" + name;
+            std::string color;
+            std::string git_char;
 
-				std::string color;
-				if(type == "dir") color = bold + blue;
-				if(type == "fifo") color = bold + "\x1b[38;5;57m"; // purple
-				if(type == "link") color = bold + orange;
-				if(type == "pipe") color = bold + red;
-				if(type == "file") color = green;
-				if(type == "other") color = gray;
+            if((name == "." || name == ".." || name.starts_with(".")) && !print_hidden) continue;
 
-				io::print(num);
-				io::print(" │ ");
-				io::print(color + name + reset);
-				io::print(" │ ");
-				io::print(type);
-				io::print("│ \n");
-			}
+            if(with_git) {
+                if(repo.get_repo() == nullptr) {
+                    info::error("The directory is not a git repository.");
+                    return -1;
+                }
 
-			closedir(d);
-			return 0;
-		}
+                std::string repo_root = repo.get_root_path();
+                if (!repo_root.empty()) {
+                    std::filesystem::path file_path = std::filesystem::absolute(fullpath);
+                    std::filesystem::path root_path = std::filesystem::path(repo_root);
+                    std::string relative_path = std::filesystem::relative(file_path, root_path).string();
 
-	int tree_print(std::string dir_path, bool print_hidden, std::vector<bool> last_entry_stack = {}) {
-		DIR *dir = opendir(dir_path.c_str());
-		if (!dir) {
-			info::error(strerror(errno), errno, dir_path);
-			return -1;
-		}
+                    std::string status = repo.get_file_status(relative_path);
+                    git_char = status;
 
-		struct dirent *entry;
-		std::vector<std::string> names;
+                    if (git_char == "U") {
+                        color = blue;  // Red (unmodified)
+                    } else if (git_char == "M") {
+                        color = "\033[33m";  // Yellow (modified)
+                    } else if (git_char == "S") {
+                        color = "\033[32m";  // Green (staged)
+                    } else if (git_char == "I") {
+                        color = "\033[90m";  // Gray (ignored)
+                    } else if (git_char == "R") {
+                        color = "\033[36m";  // Cyan (renamed)
+                    } else if (git_char == "N") {
+                        color = gray;   // Reset (untracked)
+                    } else {
+                        color = "\033[0m";   // Fallback/reset
+                    }
+                } else {
+                    info::error("Failed to get Git root path.");
+                    return -1;
+                }
+            } else {
+                switch(entry->d_type) {
+                    case DT_REG: color = green; break;
+                    case DT_DIR: color = blue; break;
+                    case DT_LNK: color = orange; break;
+                    case DT_FIFO: color = "\x1b[35m"; break;
+                    default: color = gray; 
+                }
+    }
 
-		// Collect entries
-		while ((entry = readdir(dir)) != nullptr) {
-			std::string name = entry->d_name;
-			if ((name == "." || name == "..") || (!print_hidden && name.starts_with("."))) {
-				continue;
-			}
-			names.push_back(name);
-		}
+    std::stringstream fullname;
+    if(with_icons) fullname << color << get_with_icon(fullpath) + " " << reset;
+    fullname << color << name << reset;
+    if(with_git) {
+        if(!git_char.empty()) fullname << color << " (" << git_char << ") " << reset;
+    } 
 
-		std::sort(names.begin(), names.end());
-		for (size_t i = 0; i < names.size(); ++i) {
-			bool is_last = (i == names.size() - 1);
-			std::string name = names[i];
-			std::string path = dir_path + "/" + name;
+    entries.push_back({fullname.str(), fullname.str().length(), git_char});
+}
+        std::sort(entries.begin(), entries.end(), [](std::tuple<std::string, int, std::string>& a, std::tuple<std::string, int, std::string>& b) {
+            auto first = strip_ansi(std::get<0>(a));
+            auto sec = strip_ansi(std::get<0>(b));
+            return strip_ansi(first) < strip_ansi(sec);
+        });
+ 
+        int current_width_available = get_terminal_width();
+        int longest_name_length = 0;
 
-			struct stat path_stat;
-			if (lstat(path.c_str(), &path_stat) == -1) {
-				perror("lstat");
-				continue;
-			}
+        for(auto& [name, nlength, git_char] : entries) {
+            int length_excluding_ansi = strip_ansi(name).length();
+            if(length_excluding_ansi > longest_name_length) longest_name_length = length_excluding_ansi + 1; // +1 for padding
+        }
 
-			// Print indentation and vertical lines for ancestor levels
-			for (size_t lvl = 0; lvl < last_entry_stack.size(); ++lvl) {
-				if (last_entry_stack[lvl]) {
-					io::print("  ");    // no vertical line, last entry at this level
-				} else {
-					io::print("│ ");
-				}
-			}
+        for(auto& [name, nlength, git_char] : entries) {
+            int stripped_len = strip_ansi(name).length();
+            if (stripped_len < longest_name_length)
+                name.append(longest_name_length - stripped_len, ' ');
 
-			// Print branch for current entry
-			io::print(is_last ? "└─" : "├─");
+            if(strip_ansi(name).length() > current_width_available) {
+                io::print("\n");
+                current_width_available = get_terminal_width();
+            }
+            io::print(name);
+            current_width_available -= strip_ansi(name).length();
+        }    
 
-			if (S_ISDIR(path_stat.st_mode)) {
-				io::print(bold + blue + name + reset + "\n");
-				auto new_stack = last_entry_stack;
-				new_stack.push_back(is_last);
-				tree_print(path, print_hidden, new_stack);
-			} else if (S_ISLNK(path_stat.st_mode)) {
-				char buf[1024];
-				ssize_t len = readlink(path.c_str(), buf, sizeof(buf) - 1);
-				if (len != -1) {
-					buf[len] = '\0';
-					io::print(bold + orange + name + reset + " -> " + buf + "\n");
-				} else {
-					io::print(orange + name + reset + " -> [unreadable]\n");
-				}
-			} else if(S_ISSOCK(path_stat.st_mode)) {
-				io::print(bold + magenta + name + reset + "\n");
-			} else if(S_ISFIFO(path_stat.st_mode)) {
-				io::print(bold + red + name + reset + "\n");
-			} else {
-				io::print(green + name + reset + "\n");
-			}
-		}
+        io::print("\n");
+    }
 
-		closedir(dir);
-		return 0;
-	}
+    int tree_print(std::string dir_path, bool print_hidden, std::vector<bool> last_entry_stack = {}) {
+        DIR *dir = opendir(dir_path.c_str());
+        if (!dir) {
+            info::error(strerror(errno), errno, dir_path);
+            return -1;
+        }
 
-	public:
-		Ls() : Command("ls", "Lists all files, directories, and links in a directory", "") {}
+        struct dirent *entry;
+        std::vector<std::string> names;
 
-		int exec(std::vector<std::string> args) {
-			if(args.empty()) {
-				char buffer[1024];
-				getcwd(buffer, 1024);
+        // Collect entries
+        while ((entry = readdir(dir)) != nullptr) {
+            std::string name = entry->d_name;
+            if ((name == "." || name == "..") || (!print_hidden && name.starts_with("."))) {
+                continue;
+            }
+            names.push_back(name);
+        }
 
-				default_print(buffer, false);
-				return 0;
-			}
+        std::sort(names.begin(), names.end());
+        for (size_t i = 0; i < names.size(); ++i) {
+            bool is_last = (i == names.size() - 1);
+            std::string name = names[i];
+            std::string path = dir_path + "/" + name;
 
-			std::string path;
-			bool print_tree = false;
-			bool print_hidden = false;
+            struct stat path_stat;
+            if (lstat(path.c_str(), &path_stat) == -1) {
+                perror("lstat");
+                continue;
+            }
 
-			std::vector<std::string> validArgs = {
-				"-t", "-a",
-				"--tree", "--all"
-			};
+            // Print indentation and vertical lines for ancestor levels
+            for (size_t lvl = 0; lvl < last_entry_stack.size(); ++lvl) {
+                if (last_entry_stack[lvl]) {
+                    io::print("  ");    // no vertical line, last entry at this level
+                } else {
+                    io::print("│ ");
+                }
+            }
 
-			for(auto& arg : args) {
-				if(!io::vecContains(validArgs, arg) && arg.starts_with('-')) {
-					info::error(std::string("Bad argument: ") + arg);
-					return -1;
-				}
+            // Print branch for current entry
+            io::print(is_last ? "└─" : "├─");
 
-				if(arg == "-t" || arg == "--tree") print_tree = true;
-				if(arg == "-a" || arg == "--all") print_hidden = true;
+            if (S_ISDIR(path_stat.st_mode)) {
+                io::print(bold + blue + name + reset + "\n");
+                auto new_stack = last_entry_stack;
+                new_stack.push_back(is_last);
+                tree_print(path, print_hidden, new_stack);
+            } else if (S_ISLNK(path_stat.st_mode)) {
+                char buf[1024];
+                ssize_t len = readlink(path.c_str(), buf, sizeof(buf) - 1);
+                if (len != -1) {
+                    buf[len] = '\0';
+                    io::print(bold + orange + name + reset + " -> " + buf + "\n");
+                } else {
+                    io::print(orange + name + reset + " -> [unreadable]\n");
+                }
+            } else if (S_ISSOCK(path_stat.st_mode)) {
+                io::print(bold + magenta + name + reset + "\n");
+            } else if (S_ISFIFO(path_stat.st_mode)) {
+                io::print(bold + red + name + reset + "\n");
+            } else {
+                io::print(green + name + reset + "\n");
+            }
+        }
 
-				if(!arg.starts_with("-")) {
-					path = arg;
-				}
-			}
+        closedir(dir);
+        return 0;
+    }
 
-			std::string dirpath = path;
-			if(path.empty()) {
-				char buffer[1024];
-				getcwd(buffer, 1024);
-				dirpath = buffer;
-			}
+public:
+    Ls() : Command("ls", "Lists all files, directories, and links in a directory", "") {}
 
-			if(print_tree) {
-				tree_print(dirpath, print_hidden);
-				return 0;
-			} else {
-				default_print(dirpath, print_hidden);
-				return 0;
-			}
-		}
+    int exec(std::vector<std::string> args) {
+        if (args.empty()) {
+            char buffer[1024];
+            getcwd(buffer, 1024);
+
+            default_print(buffer, false, false, false);
+            return 0;
+        }
+
+        std::string path;
+        bool print_tree = false;
+        bool print_hidden = false;
+        bool with_icons = false;
+        bool with_git = false;
+
+        std::vector<std::string> validArgs = {
+            "-t", "-a", "-i", "-g",
+            "--tree", "--all", "--icons", "--git"
+        };
+
+        for (auto& arg : args) {
+            if (!io::vecContains(validArgs, arg) && arg.starts_with('-')) {
+                info::error(std::string("Bad argument: ") + arg);
+                return -1;
+            }
+
+            if (arg == "-t" || arg == "--tree") print_tree = true;
+            if (arg == "-a" || arg == "--all") print_hidden = true;
+            if (arg == "-i" || arg == "--icons") with_icons = true;
+            if (arg == "-g" || arg == "--git") with_git = true;
+
+            if (!arg.starts_with("-")) {
+                path = arg;
+            }
+        }
+
+        std::string dirpath = path;
+        if (path.empty()) {
+            char buffer[1024];
+            getcwd(buffer, 1024);
+            dirpath = buffer;
+        }
+
+        if (print_tree) {
+            tree_print(dirpath, print_hidden);
+            return 0;
+        } else {
+            default_print(dirpath, print_hidden, with_icons, with_git);
+            return 0;
+        }
+    }
 };
 
 int main(int argc, char* argv[]) {
-	Ls ls;
+    Ls ls;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+    std::vector<std::string> args;
+    for (int i = 1; i < argc; ++i) {
+        args.emplace_back(argv[i]);
+    }
 
-	ls.exec(args);
-	return 0;
+    ls.exec(args);
+    return 0;
 }
