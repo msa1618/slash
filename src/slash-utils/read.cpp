@@ -1,12 +1,14 @@
 #include "../command.h"
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
+#include "../git/git.h"
 #include "syntax_highlighting/cpp.h"
 #include "syntax_highlighting/python.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <algorithm>
 #include <sstream>
+#include <filesystem>
 
 std::string tab_to_spaces(std::string content, int indent) {
 	std::string spaces(indent, ' ');
@@ -19,65 +21,61 @@ std::string tab_to_spaces(std::string content, int indent) {
 }
 
 class Read : public Command {
-	public:
-		Read() : Command("read", "Prints out a file's content"
-														 "Flags:"
-														 "-r  | --reverse:       Print fully reversed"
-														 "-rl | --reverse-lines: Reverse the lines, not the text in the lines", "") {};
+	private:
+		int print_content(std::string fullpath, int tab_indent, bool hidden, bool git, bool reverse_lines, bool reverse_text, bool no_highlight, bool raw,  bool specified_fromto, int from, int to) {
+			std::vector<std::pair<std::string, std::string>> content_to_use;
+			
+			if(git) {
+				GitRepo repo(std::filesystem::path(fullpath).parent_path());
+				bool repo_exists = repo.get_repo() != nullptr;
 
-		int exec(std::vector<std::string> args) {
-			if(args.empty()) {
-				io::print("read: Print a file's content\n"
-									"usage: read <filepath>\n"
-									"flags:\n"
-									"-r  | --reverse:       Print fully reversed\n"
-									"-rl | --reverse-lines: Reverse the lines only, not the text inside.\n"
-									"-h  | --hidden:        Show non-printable characters.\n");
+				if(repo_exists) {
+					std::vector<std::pair<std::string, std::string>> git_lines;
+
+					std::filesystem::path file_path = std::filesystem::absolute(fullpath);
+					std::filesystem::path root_path = std::filesystem::path(repo.get_root_path());
+					std::string relative_path = std::filesystem::relative(file_path, root_path).string();
+
+					git_lines = repo.get_file_changes(relative_path);
+					content_to_use = git_lines;
+				}
+				else if(!repo_exists) {
+					info::error("The directory of the file does not have a git repository.");
+					return -1;
+				}
+			}
+			else {
+				auto rf = io::read_file(fullpath);
+				if(!std::holds_alternative<std::string>(rf)) {
+					std::string error = std::string("Failed to read file: ") + strerror(errno);
+					info::error(error, errno);
+					return errno;
+				}
+
+				std::string content = std::get<std::string>(rf);
+				std::vector<std::pair<std::string, std::string>> raw_lines;
+
+				std::vector<std::string> cnt = io::split(content, "\n");
+				for(auto& line : cnt) raw_lines.push_back({"", line});
+				content_to_use = raw_lines;
+			}
+			
+			if(reverse_text) for(auto& [gc, line] : content_to_use) { std::reverse(line.begin(), line.end()); }
+			if(reverse_lines) std::reverse(content_to_use.begin(), content_to_use.end());
+
+			if(raw) {
+				for(auto [gc, line] : content_to_use) {
+					io::print(tab_to_spaces(line + "\n", tab_indent));
+				}
 				return 0;
 			}
 
-			std::vector<std::string> validArgs = {
-				"-r", "-rl", "-h",
-				"--reverse", "--reverse-lines", "--hidden"
-			};
-
-			bool show_hidden_chars = false;
-			bool reverse_lines     = false;
-			bool reverse_text      = false;
-
-			int indent             = 2;
-
-			std::string path;
-			for(auto& arg : args) {
-				if(!io::vecContains(validArgs, arg) && arg.starts_with("-")) {
-					info::error("Invalid argument \"" + arg + "\".\n");
-					return EINVAL;
-				}
-
-				if(!arg.starts_with("-")) {
-					path = arg;
-				}
-
-				if(arg == "-h" || arg == "--hidden") show_hidden_chars = true;
-				if(arg == "-r" || arg == "--reverse") reverse_text = true;
-				if(arg == "-rl" || arg == "--reverse-lines") reverse_lines = true;
-			}
-
-			auto rf = io::read_file(path);
-			if(!std::holds_alternative<std::string>(rf)) {
-				std::string error = std::string("Failed to read file: ") + strerror(errno);
-				info::error(error, errno);
-				return errno;
-			}
-
-			std::string content = std::get<std::string>(rf);
-			std::vector<std::string> lines = io::split(content, "\n");
-
-			for(auto& l : lines) {
-				if (show_hidden_chars) {
+			// From here, all formatting begins
+			for(auto& [gc, content] : content_to_use) {
+				if (hidden) {
 					std::string space = cyan + "·" + reset;
 					std::string enter = gray + "↲" + reset;
-					std::string tab = gray + "├" + std::string(indent - 2, '─') + "┤" + reset;
+					std::string tab = gray + "├" + std::string(tab_indent - 2, '──') + "┤" + reset;
 					std::vector<std::string> control_pics = {
 						"␀", "␁", "␂", "␃", "␄", "␅", "␆", "␇",
 						"␈", "␉", "␊", "␋", "␌", "␍", "␎", "␏",
@@ -86,7 +84,7 @@ class Read : public Command {
 					};
 
 					std::string line;
-					for (auto &c: l) {
+					for (auto &c: content) {
 						int code = static_cast<int>(c);
 						if (c == '\n') {
 							line += control_pics[code] + enter;
@@ -100,41 +98,163 @@ class Read : public Command {
 							line += space;
 							continue;
 						}
-						if (code < 32) {
+						if (code >= 0 && code < 32) {
 							line += control_pics[code];
 							continue;
 						}
 						line += c;
 					}
-					l = line + enter;
+					content = line;
 				}
 			}
 
-			for(auto& l : lines) {
+			for(auto& [gc, l] : content_to_use) {
 				// Highlighting isn't implemented yet when there are hidden characters, otherwise you'll see terminal gore
-				if(path.ends_with(".cpp") && !show_hidden_chars) l = cpp_sh(l);
-				if(path.ends_with(".py") && !show_hidden_chars) l = python_sh(l);
+				if(!hidden && !reverse_text && !no_highlight) {
+					if(fullpath.ends_with(".cpp")) l = cpp_sh(l);
+					if(fullpath.ends_with(".py")) l = python_sh(l);
+				} else break;
 			}
-
+			
 			int line_width = 0;
-			int longest_num_length = std::to_string(lines.size() - 1).length(); // Line no of the last element
+			int longest_num_length = std::to_string(content_to_use.size() - 1).length(); // Line no of the last element
 
-			line_width = std::to_string(lines.size()).length();
+			line_width = std::to_string(content_to_use.size()).length();
 			if(line_width % 2 == 0) line_width += 3;
 			else line_width += 2;
 
-			for(int i = 0; i < lines.size(); i++) {
-				lines[i] = tab_to_spaces(lines[i], 2);
-				std::string line_no =  std::to_string(i + 1);
-				line_no.resize(longest_num_length, ' ');
+			int i = 0;
+			int idk = content_to_use.size();
+			if(specified_fromto) {
+				if(from != -1) i = from;
+				if(to != -1) idk = to;
+			}
 
+			for (i; i < idk; i++) {
+				if(!hidden) content_to_use[i].second = tab_to_spaces(content_to_use[i].second, tab_indent); // No need if hidden
+				std::string line_no = std::to_string(i + 1);
+				// Pad with spaces to align right, based on longest_num_length
+				line_no.insert(0, std::string(longest_num_length - line_no.length(), ' '));
+
+				// Print the line, with equal padding for line numbers
 				io::print(std::string((line_width - 1) / 2, ' ') + " ");
-				io::print(gray + line_no + reset);
-				io::print(std::string((line_width - 1) / 2, ' ') +  gray + "│ " + reset);
-				io::print(lines[i] + "\n");
+				io::print(gray + line_no + reset + content_to_use[i].first);
+				io::print(std::string((line_width - 1) / 2, ' ') + gray + "│ " + reset);
+
+				// libgit2 adds a newline automatically for lines
+				if(git) io::print(content_to_use[i].second);
+				else io::print(content_to_use[i].second + "\n");
 			}
 
 			io::print("\n");
+		}
+
+	public:
+		Read() : Command("read", "", "") {};
+
+		int exec(std::vector<std::string> args) {
+			if (args.empty()) {
+				io::print(R"(read: print out a file's content
+usage: read <filepath> [options]
+
+flags:
+  -r     │ --reverse-lines     Reverse the line order
+  -R     │ --reverse-text      Reverse the full text. Pair with -r to reverse lines too
+  -h     │ --hidden            Show non-printable characters
+  -g     │ --git               Show file with Git diff markings
+  -t [n] │ --tab-size [n]      Set tab width to (n) spaces
+         │ --from [n]          Start printing from line (n)
+         │ --to [n]            Stop printing at line (n)
+         | --no-highlight      Don't highlight supported files
+         | --raw               Print raw content of the file; no line numbers, no git, no formatting
+)");
+				return 0;
+			}
+
+
+			std::vector<std::string> validArgs = {
+				"-r", "-R", "-h", "-g", "-t",
+				"--reverse-lines", "--reverse-text", "--hidden", "--git", "--tab-size", "--from", "--to", "--no-highlight", "--raw"
+			};
+
+			bool show_hidden_chars = false;
+			bool reverse_lines     = false;
+			bool reverse_text      = false;
+			bool git               = false;
+			bool no_highlight      = false;
+			bool raw               = false;
+
+			bool specified_fromto  = false;
+			int from               = -1; // -1 means not specified here
+			int to                 = -1;
+
+			int indent             = 2;
+
+			std::string path;
+			for(int i = 0; i < args.size(); i++) {
+				auto arg = args[i];
+				if(!io::vecContains(validArgs, arg) && arg.starts_with("-")) {
+					info::error("Invalid argument \"" + arg + "\".\n");
+					return EINVAL;
+				}
+
+				if(!arg.starts_with("-")) {
+					path = arg;
+				}
+
+				if(arg == "-h" || arg == "--hidden") show_hidden_chars = true;
+				if(arg == "-r" || arg == "--reverse-lines") reverse_lines = true;
+				if(arg == "-R" || arg == "--reverse-text") reverse_text = true;
+				if(arg == "-g" || arg == "--git") git = true;
+				if(arg == "--raw") raw = true;
+				if(arg == "--no-highlight") no_highlight = true;
+				if(arg == "--from") {
+					if (i + 1 >= args.size()) {
+						info::error("Missing from argument!");
+						return -1;
+					}
+					try {
+						from = std::stoi(args[i + 1]);
+					} catch (...) {
+						info::error("from must be a number!");
+						return -1;
+					}
+
+					specified_fromto = true;
+					i++; // Skip next arg
+				}
+				if(arg == "--to") {
+					if (i + 1 >= args.size()) {
+						info::error("Missing to argument!");
+						return -1;
+					}
+					try {
+						to = std::stoi(args[i + 1]);
+					} catch (...) {
+						info::error("to must be a number!");
+						return -1;
+					}
+
+					specified_fromto = true;
+					i++; // Skip next arg
+				}
+				if(arg == "-t") {
+					if (i + 1 >= args.size()) {
+						info::error("Missing tab size argument!");
+						return -1;
+					}
+					try {
+						indent = std::stoi(args[i + 1]);
+					} catch (...) {
+						info::error("Tab size must be a number!");
+						return -1;
+					}
+
+					i++; // Skip next arg
+				}
+			}
+
+			return print_content(path, indent, show_hidden_chars, git, reverse_lines, reverse_text, no_highlight, raw, specified_fromto, from, to);
 		}
 };
 

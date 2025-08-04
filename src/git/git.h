@@ -3,6 +3,7 @@
 
 #include <git2.h>
 #include <string>
+#include <vector>
 
 class GitRepo {
 	private:
@@ -14,8 +15,12 @@ class GitRepo {
 	~GitRepo();
 
 	bool has_git_repo();
-	bool is_file_staged(const std::string& filepath, std::string dir_path);
+	std::string get_root_path();
+	std::string get_file_status(std::string filepath);
+	std::vector<std::pair<std::string, std::string>> get_file_changes(std::string filepath);
 	std::string get_branch_name();
+
+	git_repository* get_repo();
 };
 
 #endif // SLASH_GIT_H
