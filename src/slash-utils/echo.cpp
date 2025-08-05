@@ -1,145 +1,188 @@
 #include <string>
 #include <sstream>
-#include <random>
+#include <chrono>
+#include <thread>
+#include <cmath>
+
 #include "../command.h"
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/info.h"
 
-#pragma region helpers
-
-std::string to_uppercase(std::string& text) {
-	for(auto& c : text) {
-		c = toupper(c);
-	}
-	return text;
-}
-
-std::string to_lowercase(std::string& text) {
-	for(auto& c : text) {
-		c = tolower(c);
-	}
-	return text;
-}
-
-std::string to_weirdcase(std::string& text) {
-	std::string output;
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_int_distribution<> dis(0, 1);
-
-	for(char c : text) {
-		if(std::isalpha(c)) {
-			if(dis(gen) == 0) output += std::tolower(c);
-			else output += std::toupper(c);
-		} else {
-			output += c;
-		}
-	}
-
-	return output;
-}
-
-void set_ansi_rgb(int r, int g, int b) {
-	std::stringstream result;
-	result << "\x1b[38;2;" << r << ";" << g << ";" << b << "m";
-	io::print(result.str());
-}
-
-void rainbow_text(std::string text) {
-	int length = text.size();
-
-	for (int i = 0; i < length; ++i) {
-		double ratio = (double)i / length;
-		// Use sine waves to get smooth rainbow colors
-		int r = (int)(std::sin(ratio * 2 * M_PI) * 127 + 128);
-		int g = (int)(std::sin(ratio * 2 * M_PI + 2 * M_PI / 3) * 127 + 128);
-		int b = (int)(std::sin(ratio * 2 * M_PI + 4 * M_PI / 3) * 127 + 128);
-
-		set_ansi_rgb(r, g, b);
-		io::print(std::string(1, text[i]));
-	}
-	io::print(reset);
-}
-
-
-
-#pragma endregion
 
 class Echo : public Command {
+	private:
+		std::string to_uppercase(std::string& text) {
+			for(auto& c : text) {
+				c = toupper(c);
+			}
+			return text;
+	  }
+
+	std::string to_lowercase(std::string& text) {
+		for(auto& c : text) {
+			c = tolower(c);
+		}
+		return text;
+	}
+
+	std::string to_weirdcase(std::string& text) {
+		std::string output;
+		bool uppercase = false;
+
+		for(char c : text) {
+			if(uppercase) output += toupper(c);
+			else output += tolower(c);
+      uppercase = !uppercase;
+		}
+
+		return output;
+	}
+
+  std::string get_ansi_rgb(int r, int g, int b) {
+		std::stringstream result;
+		result << "\x1b[38;2;" << r << ";" << g << ";" << b << "m";
+		return result.str();
+	}
+
+	std::string to_rainbow(std::string text) {
+		int length = text.size();
+		std::stringstream ss;
+
+		for (int i = 0; i < length; ++i) {
+			double ratio = (double)i / length;
+			// Use sine waves to get smooth rainbow colors
+			int r = (int)(std::sin(ratio * 2 * M_PI) * 127 + 128);
+			int g = (int)(std::sin(ratio * 2 * M_PI + 2 * M_PI / 3) * 127 + 128);
+			int b = (int)(std::sin(ratio * 2 * M_PI + 4 * M_PI / 3) * 127 + 128);
+
+			ss <<  get_ansi_rgb(r, g, b);
+			ss << std::string(1, text[i]);
+		}
+		ss << reset;
+		return ss.str();
+	}
+
+	int echo(
+		std::string text, bool uppercase, bool lowercase, bool weirdcase, bool infinite, bool stderr_,
+		 bool rainbow, bool typewriter, bool reverse, int loopnum
+		) {
+			if(uppercase) text = to_uppercase(text);
+			if(lowercase) text = to_lowercase(text);
+			if(weirdcase) text = to_weirdcase(text);
+
+			if(rainbow) text = to_rainbow(text);
+			if(reverse) std::reverse(text.begin(), text.end());
+
+			for(int i = 0; i < loopnum; i++) {
+					if(typewriter) {
+						for(auto& c : text) {
+							if(stderr_) io::print_err(std::string(1, c));
+							else io::print(std::string(1, c));
+							std::this_thread::sleep_for(std::chrono::milliseconds(75));
+						}
+					} else {
+						if(stderr_) io::print_err(text);
+						else io::print(text);
+					}
+			}
+
+			if(infinite) {
+				while(true) {
+					if(typewriter) {
+						for(auto& c : text) {
+							if(stderr_) io::print_err(std::string(1, c));
+							else io::print(std::string(1, c));
+							std::this_thread::sleep_for(std::chrono::milliseconds(50));
+						}
+					} else {
+						if(stderr_) io::print_err(text);
+						else io::print(text);
+					}
+				}
+			}
+
+      io::print("\n");
+			return 0;
+		 }
+
 	public:
-		Echo() : Command("echo",
-										 "Outputs whatever you type in."
-										 "Flags:"
-										 "-u: Uppercase"
-										 "-l: Lowercase"
-										 "-w: wEiRdcAsE"
-										 "-lp [num]: Loops [num] amount of times"
-										 "-i: Loops infinitely."
-										 "-r: print in rainbow",
-										 "") {}
+		Echo() : Command("", "", "") {}
 
 	int exec(std::vector<std::string> args) override {
+		if(args.empty()) {
+			io::print(R"(echo: prints all arguments
+usage: echo [args]
+       echo [options] [args]
+
+flags:
+  -l | --lowercase:  print lowercase
+  -u | --uppercase:  print uppercase
+  -w | --weirdcase:  pRiNt wEiRdCaSe
+  -r | --rainbow:    print with a rainbow gradient
+  -e | --error:      print to stderr			
+  -R | --reverse:    prints in reverse 
+  -L | --loop [n]:   prints (n) number of times
+  -i | --infinite:   prints infinitely
+     | --typewriter: prints slowly, character by character, like a typewriter
+)");
+				return 0;
+		}
+
+		std::vector<std::string> valid_args = {
+				"-l", "--lowercase",
+				"-u", "--uppercase",
+				"-w", "--weirdcase",
+				"-r", "--rainbow",
+				"-e", "--error",
+				"-R", "--reverse",
+				"-L", "--loop",
+				"--typewriter"
+		};
+
 		std::vector<std::string> text;
 		bool infinite = false;
 
-		bool loop = false;
-		int loopCount = 0;
+		int loopCount = 1;
 
-		bool uppercase = false;
-		bool lowercase = false;
-		bool weirdcase = false;
+		bool uppercase   = false;
+		bool lowercase   = false;
+		bool weirdcase   = false;
+		bool reverse     = false;
 		bool use_rainbow = false;
-
-		std::string colorCode;
+		bool stderr_     = false;
+		bool typewriter  = false;
 
 		for (size_t i = 0; i < args.size(); ++i) {
-			if (!args[i].empty() && args[i][0] == '-') {
-				if (args[i] == "-i") {
-					infinite = true;
-				} else if (args[i] == "-lp" && i + 1 < args.size()) {
-					loopCount = std::stoi(args[++i]);
-					loop = true;
-				} else if (args[i] == "-u") {
-					uppercase = true;
-				} else if(args[i] == "-l") {
-					lowercase = true;
-				} else if(args[i] == "-w") {
-					weirdcase = true;
-				} else if(args[i] == "-r") {
-					use_rainbow = true;
+				const std::string& arg = args[i];
+
+				if (arg == "-u" || arg == "--uppercase") uppercase = true;
+				else if (arg == "-l" || arg == "--lowercase") lowercase = true;
+				else if (arg == "-w" || arg == "--weirdcase") weirdcase = true;
+				else if (arg == "-r" || arg == "--rainbow") use_rainbow = true;
+				else if (arg == "-e" || arg == "--error") stderr_ = true;
+				else if (arg == "-R" || arg == "--reverse") reverse = true;
+				else if (arg == "--typewriter") typewriter = true;
+        else if (arg == "-i" || arg == "--infinite") infinite = true;
+				else if (arg == "-L" || arg == "--loop") {
+						// handle loop count
+						if (i + 1 < args.size() && !args[i + 1].starts_with("-")) {
+								try {
+									loopCount = std::stoi(args[++i]);
+								} catch(...) {
+									info::error("Loop argument must be a number.");
+									return -1;
+								}
+						} else {
+								info::error("Missing loop number!");
+								return -1;
+						}
+				} else {
+						text.push_back(arg);
 				}
-			} else {
-				text.push_back(args[i]);
-			}
 		}
 
-		if(uppercase) { for(auto& word : text) word = to_uppercase(word); }
-		if(lowercase) { for(auto& word : text) word = to_lowercase(word); }
-		if(weirdcase) { for(auto& word : text) word = to_weirdcase(word); }
-
-		std::stringstream ss;
-		for (const auto& word : text) ss << word << " ";
-		std::string str = ss.str();
-
-		if (infinite) {
-			while (true) io::print(str);
-		}
-		else if(use_rainbow) {
-			rainbow_text(str);
-			io::print("\n");
-		}
-		else if(loop) {
-			for (int i = 0; i < loopCount; ++i) {
-				io::print(str);
-				io::print("\n");
-			}
-		}
-		else {
-			io::print(str);
-		}
-
-		return 0;
+		return echo(io::join(text, " "), uppercase, lowercase, weirdcase, infinite, stderr_, use_rainbow, typewriter, reverse, loopCount);
 	}
-
 };
 
 int main(int argc, char* argv[]) {
