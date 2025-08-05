@@ -1,40 +1,83 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
-#include "../abstractions/colors.h"
 #include "../command.h"
 
 #include <vector>
 #include <string>
+#include <regex>
 
 class Csv : public Command {
 	private:
-	std::string print_csv_table(std::string csv, std::string separator) {
-		std::vector<std::vector<std::string>> table;
-		auto rows = io::split(csv, "\n");
-		for(auto& row : rows) {
-			std::vector<std::string> data = io::split(row, separator);
-			table.push_back(data);
-		}
+	
+std::string strip_ansi(const std::string& str) {
+    static const std::regex ansi_regex("\x1B\\[[0-9;]*[mK]");
+    return std::regex_replace(str, ansi_regex, "");
+}
 
-		int longest_cell_length = 0;
+std::string print_csv_table(std::string csv, std::string separator) {
+    csv = io::trim(csv);
+    std::vector<std::vector<std::string>> table;
+    auto rows = io::split(csv, "\n");
+    for (auto& row : rows) {
+        table.push_back(io::split(row, separator));
+    }
 
-		for(int i = 0; i < table.size(); i++) {
-			auto row = table[i];
-			for(int j = 0; j < row.size(); j++) {
-				if(row[j].length() > longest_cell_length) longest_cell_length = row[j].length(); // I know that it depends on the column but for now
-			}
-		}
+    if (table.empty()) return "";
 
-		for(int i = 0; i < table.size(); i++) {
-			auto row = table[i];
-			for(int j = 0; j < table[i].size(); j++) {
-				auto cell = row[j];
-				cell.resize(longest_cell_length, ' ');
-				io::print(cell + " │ ");
-			}
-			io::print("\n");
-		}
-	}
+    int cols = table[0].size();
+    std::vector<int> col_widths(cols, 0);
+
+    // Calculate max width per column (using visible length)
+    for (auto& row : table) {
+        for (int i = 0; i < cols; i++) {
+            if (i < row.size()) {
+                int len = strip_ansi(row[i]).length();
+                if (len > col_widths[i])
+                    col_widths[i] = len;
+            }
+        }
+    }
+
+    // Calculate total width including separators " │ " (3 chars each)
+    int total_width = 0;
+    for (int w : col_widths) total_width += w;
+    total_width += 3 * (cols - 1);
+
+    // Print top border
+    for (int i = 0; i < total_width; i++) io::print(green + "─" + reset);
+    io::print("\n");
+
+    // Print header row
+    for (int j = 0; j < cols; j++) {
+        std::string cell = j < table[0].size() ? table[0][j] : "";
+        int visible_len = strip_ansi(cell).length();
+        io::print(green + cell + std::string(col_widths[j] - visible_len, ' ') + reset);
+        if (j < cols - 1) io::print(green + " │ " + reset);
+    }
+    io::print("\n");
+
+    // Print header separator
+    for (int i = 0; i < total_width; i++) io::print(green + "─" + reset);
+    io::print("\n");
+
+    // Print remaining rows
+    for (int i = 1; i < table.size(); i++) {
+        for (int j = 0; j < cols; j++) {
+            std::string cell = j < table[i].size() ? table[i][j] : "";
+            int visible_len = strip_ansi(cell).length();
+            io::print(cell + std::string(col_widths[j] - visible_len, ' '));
+            if (j < cols - 1) io::print(" │ ");
+        }
+        io::print("\n");
+    }
+
+    // Print bottom border
+    for (int i = 0; i < total_width; i++) io::print("─");
+    io::print("\n");
+
+    return "";
+}
+
 
 	public:
 		Csv() : Command("csv", "", "") {}
@@ -60,13 +103,13 @@ class Csv : public Command {
 			for (int i = 0; i < args.size(); i++) {
 				if (!io::vecContains(valid_args, args[i]) && args[i].starts_with("-")) {
 					info::error("Invalid argument \"" + args[i] + "\"\n");
-					return -1;
+					return EINVAL;
 				}
 
 				if (args[i] == "-s" || args[i] == "--separator") {
 					if(i + 1 > args.size()) {
 						info::error("Expected separator.");
-						return -1;
+						return EINVAL;
 					}
 					separator = args[++i];
 				}
@@ -74,7 +117,7 @@ class Csv : public Command {
 				if (args[i] == "-t" || args[i] == "--text") {
 					if(i + 1 > args.size()) {
 						info::error("Expected text.");
-						return -1;
+						return EINVAL;
 					}
 					arg = args[++i];
 					is_text = true;
@@ -93,7 +136,7 @@ class Csv : public Command {
 				if (!std::holds_alternative<std::string>(content)) {
 					std::string error = std::string("Failed to open \"" + arg + "\":") + strerror(errno);
 					info::error(error, errno);
-					return -1;
+					return EINVAL;
 				}
 				print_csv_table(std::get<std::string>(content), separator);
 			}
