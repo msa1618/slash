@@ -5,9 +5,9 @@
 #include "../abstractions/info.h"
 #include "../command.h"
 
-class Hex : public Command {
+class Dump : public Command {
   private:
-    int dump(bool is_file, std::string input) {
+    int dump(bool is_file, bool oct, std::string input) {
       std::string text;
 
       if(is_file) {
@@ -24,12 +24,22 @@ class Hex : public Command {
       int bytesRead = 0;
       for(int i = 0; i < text.size(); i += 16) {
         std::stringstream ss;
-        ss << magenta << std::setw(7) << std::setfill('0') << std::hex << bytesRead << ": " << reset;
+        ss << magenta << std::setw(7) << std::setfill('0');
+        if(!oct) ss << std::hex;
+        else ss << std::oct;
+        ss << bytesRead << ": " << reset;
         
         for(size_t j = 0; j < 16; ++j) {
           if(i + j < text.size()) {
             unsigned char c = text[i + j];
-            ss << std::setw(2) << std::setfill('0') << std::uppercase << std::hex << (int)c << " ";
+            int width;
+            if(!oct) width = 2;
+            else width = 3;
+
+            ss << std::setw(width) << std::setfill('0') << std::uppercase;
+            if(!oct) ss << std::hex; //std::hex << (int)c << " ";
+            else ss << std::oct;
+            ss << (int)c << " ";
           } else {
             ss << "   "; // pad for missing bytes
           }
@@ -47,25 +57,27 @@ class Hex : public Command {
     }
 
     public:
-      Hex() : Command("hex", "", "") {}
+      Dump() : Command("dump", "", "") {}
 
       int exec(std::vector<std::string> args) {
         if(args.empty()) {
-          io::print(R"(hex: hexdump a file or text
+          io::print(R"(dump: dump a file or text in either hex or oct
 usage: hex <filename> 
 
 flags:
-  -t | --text: input is text
+  -o | --octal: dump in octal
+  -t | --text:  input is text
 )");
             return 0;
         }
 
         std::vector<std::string> valid_args = {
-          "-t",
-          "--text"
+          "-t", "-o",
+          "--text", "--octal"
         };
 
         bool is_file = true;
+        bool use_octal = false;
         std::string a;
 
         for(auto& arg : args) {
@@ -75,28 +87,29 @@ flags:
           }
 
           if(arg == "-t" || arg == "--text") is_file = false;
+          if(arg == "-o" || arg == "--octal") use_octal = true;
           if(!arg.starts_with("-")) a = arg;
         }
 
         if(!is_file) {
-          if(!a.empty()) return dump(false, a);
+          if(!a.empty()) return dump(false, use_octal, a);
           else { // The argument is empty, so the user could be piping
             std::stringstream piped;
             piped << std::cin.rdbuf();
-            return dump(false, piped.str());
+            return dump(false, use_octal, piped.str());
           }
-        } else return dump(true, a);
+        } else return dump(true, use_octal, a);
       }
 };
 
 int main(int argc, char* argv[]) {
-	Hex hex;
+	Dump dump;
 
 	std::vector<std::string> args;
 	for (int i = 1; i < argc; ++i) {
 		args.emplace_back(argv[i]);
 	}
 
-	hex.exec(args);
+	dump.exec(args);
 	return 0;
 }
