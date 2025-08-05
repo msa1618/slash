@@ -7,7 +7,13 @@
 
 class Dump : public Command {
   private:
-    int dump(bool is_file, bool oct, std::string input) {
+    enum Types {
+      Hex,
+      Octal,
+      Decimal
+    };
+
+    int dump(bool is_file, int mode, std::string input) {
       std::string text;
 
       if(is_file) {
@@ -25,23 +31,26 @@ class Dump : public Command {
       for(int i = 0; i < text.size(); i += 16) {
         std::stringstream ss;
         ss << magenta << std::setw(7) << std::setfill('0');
-        if(!oct) ss << std::hex;
-        else ss << std::oct;
+        if(mode == Hex) ss << std::hex;
+        else if(mode == Octal) ss << std::oct;
+        else if(mode == Decimal) ss << std::dec;
         ss << bytesRead << ": " << reset;
         
         for(size_t j = 0; j < 16; ++j) {
           if(i + j < text.size()) {
             unsigned char c = text[i + j];
             int width;
-            if(!oct) width = 2;
+            if(mode == Hex) width = 2;
             else width = 3;
 
             ss << std::setw(width) << std::setfill('0') << std::uppercase;
-            if(!oct) ss << std::hex; //std::hex << (int)c << " ";
-            else ss << std::oct;
+            if(mode == Hex) ss << std::hex;
+            else if(mode == Octal) ss << std::oct;
+            else if(mode == Decimal) ss << std::dec;
             ss << (int)c << " ";
           } else {
-            ss << "   "; // pad for missing bytes
+            if(mode == Hex) ss << "   "; // pad for missing bytes
+            else ss << "    ";
           }
         }
 
@@ -61,23 +70,24 @@ class Dump : public Command {
 
       int exec(std::vector<std::string> args) {
         if(args.empty()) {
-          io::print(R"(dump: dump a file or text in either hex or oct
+          io::print(R"(dump: dump a file or text in either hex, octal, or decimal
 usage: hex <filename> 
 
 flags:
   -o | --octal: dump in octal
+  -d | --decimal
   -t | --text:  input is text
 )");
             return 0;
         }
 
         std::vector<std::string> valid_args = {
-          "-t", "-o",
-          "--text", "--octal"
+          "-t", "-o", "-d",
+          "--text", "--octal", "--decimal"
         };
 
         bool is_file = true;
-        bool use_octal = false;
+        int mode = Hex;
         std::string a;
 
         for(auto& arg : args) {
@@ -87,18 +97,19 @@ flags:
           }
 
           if(arg == "-t" || arg == "--text") is_file = false;
-          if(arg == "-o" || arg == "--octal") use_octal = true;
+          if(arg == "-o" || arg == "--octal") mode = Octal;
+          if(arg == "-d" || arg == "--decimal") mode = Decimal;
           if(!arg.starts_with("-")) a = arg;
         }
 
         if(!is_file) {
-          if(!a.empty()) return dump(false, use_octal, a);
+          if(!a.empty()) return dump(false, mode, a);
           else { // The argument is empty, so the user could be piping
             std::stringstream piped;
             piped << std::cin.rdbuf();
-            return dump(false, use_octal, piped.str());
+            return dump(false, mode, piped.str());
           }
-        } else return dump(true, use_octal, a);
+        } else return dump(true, mode, a);
       }
 };
 
