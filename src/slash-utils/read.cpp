@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <sstream>
 #include <filesystem>
+#include <unordered_set>
 
 std::string tab_to_spaces(std::string content, int indent) {
 	std::string spaces(indent, ' ');
@@ -22,7 +23,19 @@ std::string tab_to_spaces(std::string content, int indent) {
 
 class Read : public Command {
 	private:
-		int print_content(std::string fullpath, int tab_indent, bool hidden, bool git, bool reverse_lines, bool reverse_text, bool no_highlight, bool raw,  bool specified_fromto, int from, int to) {
+		std::vector<std::pair<std::string, std::string>> filter_duplicates(std::vector<std::pair<std::string, std::string>> input) {
+			std::unordered_set<std::string> seen;
+			std::vector<std::pair<std::string, std::string>> result;
+
+			for (const auto& p : input) {
+					if (seen.insert(p.second).second) {
+							result.push_back(p);
+					}
+			}
+			return result;
+		}
+
+		int print_content(std::string fullpath, int tab_indent, bool hidden, bool git, bool reverse_lines, bool reverse_text, bool no_highlight, bool raw, bool filter_dups, bool sort,  bool specified_fromto, int from, int to) {
 			std::vector<std::pair<std::string, std::string>> content_to_use;
 			
 			if(git) {
@@ -62,6 +75,10 @@ class Read : public Command {
 			
 			if(reverse_text) for(auto& [gc, line] : content_to_use) { std::reverse(line.begin(), line.end()); }
 			if(reverse_lines) std::reverse(content_to_use.begin(), content_to_use.end());
+			if(sort) std::sort(content_to_use.begin(), content_to_use.end(), [](std::pair<std::string, std::string> a, std::pair<std::string, std::string> b){
+				return a.second < b.second;
+			});
+			if(filter_dups) content_to_use = filter_duplicates(content_to_use);
 
 			if(raw) {
 				for(auto [gc, line] : content_to_use) {
@@ -75,7 +92,13 @@ class Read : public Command {
 				if (hidden) {
 					std::string space = cyan + "·" + reset;
 					std::string enter = gray + "↲" + reset;
-					std::string tab = gray + "├" + std::string(tab_indent - 2, '──') + "┤" + reset;
+
+					std::string tab_dashes = [tab_indent](){
+						std::string res;
+						for(int i = 0; i < tab_indent - 2; i++) res += "─";
+						return res;
+					}();
+					std::string tab = gray + "├" + tab_dashes + "┤" + reset;
 					std::vector<std::string> control_pics = {
 						"␀", "␁", "␂", "␃", "␄", "␅", "␆", "␇",
 						"␈", "␉", "␊", "␋", "␌", "␍", "␎", "␏",
@@ -163,6 +186,8 @@ flags:
   -h     │ --hidden            Show non-printable characters
   -g     │ --git               Show file with Git diff markings
   -t [n] │ --tab-size [n]      Set tab width to (n) spaces
+	-u     | --unique            Filter duplicates
+	-s     | --sort              Sort lines
          │ --from [n]          Start printing from line (n)
          │ --to [n]            Stop printing at line (n)
          | --no-highlight      Don't highlight supported files
@@ -173,8 +198,8 @@ flags:
 
 
 			std::vector<std::string> validArgs = {
-				"-r", "-R", "-h", "-g", "-t",
-				"--reverse-lines", "--reverse-text", "--hidden", "--git", "--tab-size", "--from", "--to", "--no-highlight", "--raw"
+				"-r", "-R", "-h", "-g", "-t", "-u", "-s",
+				"--reverse-lines", "--reverse-text", "--hidden", "--git", "--tab-size", "--from", "--to", "--no-highlight", "--raw", "--unique", "--sort"
 			};
 
 			bool show_hidden_chars = false;
@@ -183,6 +208,8 @@ flags:
 			bool git               = false;
 			bool no_highlight      = false;
 			bool raw               = false;
+			bool sort              = false;
+			bool unique            = false;
 
 			bool specified_fromto  = false;
 			int from               = -1; // -1 means not specified here
@@ -206,6 +233,8 @@ flags:
 				if(arg == "-r" || arg == "--reverse-lines") reverse_lines = true;
 				if(arg == "-R" || arg == "--reverse-text") reverse_text = true;
 				if(arg == "-g" || arg == "--git") git = true;
+				if(arg == "-u" || arg == "--unique") unique = true;
+				if(arg == "-s" || arg == "--sort") sort = true;
 				if(arg == "--raw") raw = true;
 				if(arg == "--no-highlight") no_highlight = true;
 				if(arg == "--from") {
@@ -254,7 +283,7 @@ flags:
 				}
 			}
 
-			return print_content(path, indent, show_hidden_chars, git, reverse_lines, reverse_text, no_highlight, raw, specified_fromto, from, to);
+			return print_content(path, indent, show_hidden_chars, git, reverse_lines, reverse_text, no_highlight, raw, unique, sort, specified_fromto, from, to);
 		}
 };
 
