@@ -102,7 +102,6 @@ int redirect(std::vector<std::string>& parsed_args, std::string input, bool save
 
      // --- Execute command ---
     //if(is_slashutil) execv(argv[0], argv.data());
-		info::debug(argv[0]);
 		execvp(argv[0], argv.data());
 
     info::error(std::string("execvp failed: ") + strerror(errno), errno);

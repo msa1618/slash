@@ -93,9 +93,6 @@ Args parse_arguments(std::string command) {
 		if ((c == '"' || c == '\'') && !dq_mode && !sq_mode) {
 			if (i > 0 && parsed_command[i - 1] == '@') {
 				cq_mode = true;
-				// remove @ from buffer if it slipped in
-				if (!buffer.empty() && buffer.back() == '@')
-					buffer.pop_back();
 			}
 			if (c == '"') dq_mode = true;
 			else sq_mode = true;
@@ -143,6 +140,10 @@ Args parse_arguments(std::string command) {
 
 		// Fallback
 		buffer.push_back(c);
+	}
+
+	if (!buffer.empty()) {
+		args.push_back(buffer);
 	}
 
 	return args;

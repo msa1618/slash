@@ -263,7 +263,7 @@ std::string get_prompt_segment() {
 	auto newlineBefore = get_bool(j, "newlineBefore", "prompt").value_or(false);
 	auto newlineAfter = get_bool(j, "newlineAfter", "prompt").value_or(false);
 
-	std::string ansi;
+	std::string ansi = "";
 	if (color && *color != std::array<int, 3>{256, 256, 256}) {
 		ansi = rgb_to_ansi(*color);
 	}
@@ -271,11 +271,63 @@ std::string get_prompt_segment() {
 
 	std::stringstream out;
 
-	if (newlineBefore) out << "\n";
+	if (newlineBefore) out << "\n" << "\x1b[2K";
 	out << ansi << character << after << reset;
 	if (newlineAfter) out << "\n";
 
+
 	return out.str();
+}
+
+void draw_prompt() {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return;
+	std::stringstream prompt;
+
+	auto time_enabled = get_bool(j, "enabled", "time");
+	auto align_right = get_bool(j, "alignRight", "time");
+
+	if (time_enabled && *time_enabled) {
+    if (!align_right && *align_right) {
+        prompt << get_time_segment();
+    }
+	}
+
+	if (get_bool(j, "enabled", "user")) prompt << get_user_segment();
+	if (get_bool(j, "enabled", "group")) prompt << get_group_segment();
+	if (get_bool(j, "enabled", "hostname")) prompt << get_hostname_segment();
+	if (get_bool(j, "enabled", "currentdir")) prompt << get_cwd_segment();
+	if (get_bool(j, "enabled", "git-branch")) prompt << get_git_segment();
+	if (get_bool(j, "enabled", "ssh")) { prompt << get_ssh_segment(); }
+
+	io::print(prompt.str());
+
+	if (time_enabled && *time_enabled) {
+    if (align_right && *align_right) {
+        io::print_right(get_time_segment());
+    }
+	}
+
+	if (get_bool(j, "enabled", "prompt") == true) {
+		io::print(get_prompt_segment());
+	}
+}
+
+void redraw_prompt(std::string content) {
+	std::string home = getenv("HOME");
+	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	if (j.empty()) return;
+
+	auto newline_before = get_bool(j, "newlineBefore", "prompt");
+	if(newline_before && *newline_before) {
+		io::print("\x1b[1A");
+		io::print(get_prompt_segment());
+		io::print(content);
+	} else {
+		io::print("\x1b[2K\r");
+		draw_prompt();
+	}
 }
 
 std::string highl(std::string prompt) {
@@ -309,12 +361,11 @@ std::string highl(std::string prompt) {
 	return highlight(prompt, patterns);
 }
 
-
 std::variant<std::string, int> read_input(int& history_index) {
-	std::string buffer;
+	std::string buffer = "";
 	int char_pos = 0;
 	history_index = 0;
-	char c;
+	char c = 0;
 
 	while(true) {
 		if(read(STDIN_FILENO, &c, 1) != 1) continue;
@@ -364,14 +415,12 @@ std::variant<std::string, int> read_input(int& history_index) {
 					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
 					if (commands.empty()) break;
 
-					if (history_index < commands.size())
-						history_index++;
+					if (history_index < commands.size()) history_index++;
+					else continue;
 
 					std::string command = commands[commands.size() - history_index];
-					io::print("\x1b[2K\r"); // Clear whole line and move cursor to beginning of the current line
-					io::print(gray + "> ");
-					io::print(reset);
-					io::print(highl(command));
+
+					redraw_prompt(highl(command));
 					char_pos = (int) command.length();
 					buffer = command;
 					break;
@@ -388,14 +437,12 @@ std::variant<std::string, int> read_input(int& history_index) {
 					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
 					if (commands.empty()) break;
 
-					if (history_index < commands.size())
+					if (history_index < commands.size() && history_index > 0)
 						history_index--;
+					else continue;
 
 					std::string command = commands[commands.size() - history_index];
-					io::print("\x1b[2K\r"); // Clear whole line and move cursor to beginning of the current line
-					io::print(gray + "> ");
-					io::print(reset);
-					io::print(highl(command));
+					redraw_prompt(highl(command));
 					char_pos = (int) command.length();
 					buffer = command;
 					break;
@@ -421,15 +468,23 @@ std::variant<std::string, int> read_input(int& history_index) {
 		}
 
 		if(isprint(static_cast<unsigned char>(c))) {
-    if(c == '\'' || c == '"') {
+    if(c == '\'' || c == '"' || c == '(' || c == '{' || c == '[') {
         buffer.insert(buffer.begin() + char_pos, c);      // insert first quote
-        buffer.insert(buffer.begin() + char_pos, c);      // insert second quote
-        char_pos++;                                       // move cursor inside quotes
+				char_pos++;
+
+				char second = 0;
+				if (c == '\'')  second = '\'';
+				if (c == '"')   second = '"';
+				if (c == '(')   second = ')';
+				if (c == '{')   second = '}';
+				if (c == '[')   second = ']';
+
+				if(second == 0) continue;
+				
+        buffer.insert(buffer.begin() + char_pos, second);
 
         // Clear line and reprint everything with syntax highlight
-        io::print("\x1b[2K\r"); // clear line
-        io::print(gray + "> " + reset);
-        io::print(highl(buffer));
+        redraw_prompt(highl(buffer));
 
         // Move cursor back to position inside quotes
         int cursor_back = buffer.length() - char_pos;
@@ -438,13 +493,12 @@ std::variant<std::string, int> read_input(int& history_index) {
             move_left << "\x1b[" << cursor_back << "D";
             io::print(move_left.str());
         }
+						
     } else {
         buffer.insert(buffer.begin() + char_pos, c);
         char_pos++;
 
-        io::print("\x1b[2K\r"); // clear line
-        io::print(gray + "> " + reset);
-        io::print(highl(buffer));
+        redraw_prompt(highl(buffer));
 
         int cursor_back = buffer.length() - char_pos;
         if (cursor_back > 0) {
@@ -454,10 +508,10 @@ std::variant<std::string, int> read_input(int& history_index) {
         }
     }
 }
-
 	}
 	return buffer;
 }
+
 
 std::string print_prompt(nlohmann::json& j) {
 	char buffer[512];
@@ -466,40 +520,13 @@ std::string print_prompt(nlohmann::json& j) {
 
 	if (j.empty()) return "";
 
-	std::vector<std::string> user_group_name;
-
-	auto time_enabled = get_bool(j, "enabled", "time");
-	auto align_right = get_bool(j, "alignRight", "time");
-
-	if (time_enabled && *time_enabled) {
-    if (!align_right && *align_right) {
-        prompt << get_time_segment();
-    }
-	}
-
-	if (get_bool(j, "enabled", "user")) prompt << get_user_segment();
-	if (get_bool(j, "enabled", "group")) prompt << get_group_segment();
-	if (get_bool(j, "enabled", "hostname")) prompt << get_hostname_segment();
-	if (get_bool(j, "enabled", "currentdir")) prompt << get_cwd_segment();
-	if (get_bool(j, "enabled", "git-branch")) prompt << get_git_segment();
-	if (get_bool(j, "enabled", "ssh")) { prompt << get_ssh_segment(); }
-
-	io::print(prompt.str());
-
-	if (time_enabled && *time_enabled) {
-    if (align_right && *align_right) {
-        io::print_right(get_time_segment());
-    }
-	}
-
-	if (get_bool(j, "enabled", "prompt") == true) {
-		io::print(get_prompt_segment());
-	}
+	draw_prompt();
 
 	int history_index = 0;
 	auto input = read_input(history_index);
-	if (std::holds_alternative<int>(input)) {
-		info::error(strerror(errno), errno);
+	if (!std::holds_alternative<std::string>(input)) {
+		std::string error = std::string("Failed to fetch history: ") + strerror(errno);
+		info::error(error, errno);
 		return "";
 	}
 
