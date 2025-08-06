@@ -74,9 +74,9 @@ class Dump : public Command {
 usage: hex <filename> 
 
 flags:
-  -o | --octal: dump in octal
-  -d | --decimal
-  -t | --text:  input is text
+  -o | --octal:   dump in octal
+  -d | --decimal: dump in decimal
+  -t | --text:    input is text
 )");
             return 0;
         }
