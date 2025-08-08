@@ -19,7 +19,6 @@ void enable_raw_mode() {
 
 	termios raw = orig;
 	raw.c_lflag &= ~(ECHO | ICANON);
-	raw.c_lflag &= ~ICRNL;
 	raw.c_lflag &= ~(OPOST);
 	raw.c_cc[VMIN] = 1;
 	raw.c_cc[VTIME] = 0;
@@ -66,7 +65,7 @@ void execute_startup_commands() {
 		command = interpret_escapes(command);
 		if(command.empty()) continue;
 		std::vector<std::string> tokens = io::split(command, " ");
-		execute(tokens, io::join(tokens, " "), false);
+		execute(tokens, io::join(tokens, " "), false, false, false);
 	}
 }
 
