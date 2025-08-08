@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sstream>
-#include <regex>
+#include <boost/regex.hpp>
 #include <iostream>  // For isprint
 #include <cstring>   // For strerror
 #include <optional>
@@ -333,29 +333,37 @@ void redraw_prompt(std::string content) {
 std::string highl(std::string prompt) {
 	// Right now it's hardcoded. No matter how hard I tried, I couldn't get JSON to work with it.
 	// It's better than no highlighting tho :)
-	std::regex quotes("\"[^\"]*\"");
-	std::regex comments("\\#.*");
-	std::regex operators(">>|&&|\\|\\||[|&>]");
-	std::regex paths("(/[^\\s|&><#\"]+)|(\\.{1,2}(/[^\\s|&><#\"]*)*)|(~)");
-	std::regex flags("-[A-Za-z0-9\\-_]+");
-	std::regex bools("(true|false)");
-	std::regex numbers("[0-9]");
+	boost::regex quotes("\"[^\"]*\"");
+	boost::regex comments("\\#.*");
+	boost::regex operators(">>|&&|\\|\\||[|&>]");
+	boost::regex paths("(/[^\\s|&><#\"]+)|(\\.{1,2}(/[^\\s|&><#\"]*)*)|(~)");
+	boost::regex flags("-[A-Za-z0-9\\-_]+");
+	boost::regex bools("(true|false)");
+	boost::regex numbers("[0-9]");
+	boost::regex quote_pref("(R|@)(?=\"[^\"]*\")");
+	// I know its lengthy but boost::regex doesnt support variable length lookbehinds. Atleast theres lookbehind support unlike std::regex
+	boost::regex cmds(R"((?:^|\s*(?<=&&)|\s*(?<=\|)|\s*(?<=;))\s*([^\s]+))"); 
+	boost::regex opers(R"((&&|\|\||\||;))");
 
-	const std::string cmd_color     = "\x1b[38;2;42;157;143m";  // teal
-	const std::string bool_color    = "\x1b[38;2;52;25;25m";    // dark red
-	const std::string number_color  = "\x1b[38;2;52;160;164m";  // teal
-	const std::string flag_color    = "\x1b[38;2;131;197;190m"; // light teal
-	const std::string path_color    = "\x1b[38;2;221;161;94m";  // orange
-	const std::string comment_color = "\x1b[38;2;73;80;87m";    // gray
-	const std::string quote_color   = "\x1b[38;2;88;129;87m";   // green
+	const std::string cmd_color         = "\x1b[38;2;158;227;125m";
+	const std::string bool_color        = "\x1b[38;2;52;25;25m";
+	const std::string number_color      = "\x1b[38;2;52;160;164m";
+	const std::string flag_color        = "\x1b[38;2;131;197;190m";
+	const std::string path_color        = "\x1b[38;2;221;161;94m";
+	const std::string comment_color     = "\x1b[38;2;73;80;87m";
+	const std::string quote_color       = "\x1b[38;2;88;129;87m";
+	const std::string quote_pref_color  = "\x1b[38;2;221;161;94m";
 
-	std::vector<std::pair<std::regex, std::string>> patterns = {
+	std::vector<std::pair<boost::regex, std::string>> patterns = {
 			{bools, bool_color},
 			{numbers, number_color},
 			{flags, flag_color},
 			{paths, path_color},
 			{comments, comment_color},
-			{quotes, quote_color}
+			{cmds, cmd_color},
+			{opers, reset},
+			{quote_pref, quote_pref_color},
+			{quotes, quote_color},
 	};
 
 	return highlight(prompt, patterns);
@@ -381,7 +389,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 				buffer.erase(char_pos, 1);
 
 				// Move cursor one left
-				write(STDOUT_FILENO, "\b", 1);
+				io::print("\b");
 
 				// Reprint the rest of the buffer from cursor
 				std::string tail = buffer.substr(char_pos);
@@ -390,79 +398,113 @@ std::variant<std::string, int> read_input(int& history_index) {
 				// Add a space at the end to erase leftover char
 				io::print(" ");
 
-				// Move cursor back to correct position
 				for (size_t i = 0; i < tail.length() + 1; ++i) {
-					write(STDOUT_FILENO, "\b", 1);
+					io::print("\b");
 				}
 			}
 			continue;
 		}
 
 		if(c == 27) { // Escape sequence
-			char seq[2];
-			if(read(STDIN_FILENO, &seq[0], 1) != 1) continue;
-			if(read(STDIN_FILENO, &seq[1], 1) != 1) continue;
+			char seq[10];
+			int n = 0;
 
-			switch(seq[1]) {
-				case 'A': { // Up arrow
-					const char *home = getenv("HOME");
-					auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
-					if (std::holds_alternative<int>(history)) {
+			while (n < 9) {
+					int r = read(STDIN_FILENO, &seq[n], 1);
+					if (r != 1) break;
+					n++;
+					// Escape sequences usually end with a letter
+					if ((seq[n-1] >= 'A' && seq[n-1] <= 'Z') || (seq[n-1] >= 'a' && seq[n-1] <= 'z')) break;
+			}
+
+			std::string seq_str(seq, n);
+
+			if (seq_str == "[A") { // Up arrow
+				const char *home = getenv("HOME");
+				auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
+				if (std::holds_alternative<int>(history)) {
 						std::string err = std::string("Failed to fetch history: ") + strerror(errno);
 						info::error(err, errno, "~/.slash/.slash_history");
 						return errno;
-					}
-					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
-					if (commands.empty()) break;
-
-					if (history_index < commands.size()) history_index++;
-					else continue;
-
-					std::string command = commands[commands.size() - history_index];
-
-					redraw_prompt(highl(command));
-					char_pos = (int) command.length();
-					buffer = command;
-					break;
 				}
+				std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
+				if (commands.empty()) return buffer; // or break;
 
-				case 'B': { // Down arrow
-					const char *home = getenv("HOME");
-					auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
-					if (std::holds_alternative<int>(history)) {
+				if (history_index < commands.size()) history_index++;
+				else return buffer;
+
+				std::string command = commands[commands.size() - history_index];
+				redraw_prompt(highl(command));
+				char_pos = (int)command.length();
+				buffer = command;
+
+		} else if (seq_str == "[B") { // Down arrow
+				const char *home = getenv("HOME");
+				auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
+				if (std::holds_alternative<int>(history)) {
 						std::string err = std::string("Failed to fetch history: ") + strerror(errno);
 						info::error(err, errno, "~/.slash/.slash_history");
 						return errno;
-					}
-					std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
-					if (commands.empty()) break;
+				}
+				std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
+				if (commands.empty()) continue;
 
-					if (history_index < commands.size() && history_index > 0)
+				if (history_index < commands.size() && history_index > 0)
 						history_index--;
-					else continue;
+				else redraw_prompt(highl(buffer));
 
-					std::string command = commands[commands.size() - history_index];
-					redraw_prompt(highl(command));
-					char_pos = (int) command.length();
-					buffer = command;
-					break;
-				}
-				case 'C': { // Right arrow
-					if(char_pos < (int)buffer.size()) {
+				std::string command = commands[commands.size() - history_index];
+				redraw_prompt(highl(command));
+				char_pos = (int)command.length();
+				buffer = command;
+
+		} else if (seq_str == "[C") { // Right arrow
+				if (char_pos < (int)buffer.size()) {
 						io::print("\x1b[C");
 						char_pos++;
-					}
-					break;
 				}
-
-				case 'D': { // Left arrow
-					if(char_pos > 0) {
+		} else if (seq_str == "[D") { // Left arrow
+				if (char_pos > 0) {
 						io::print("\x1b[D");
 						char_pos--;
-					}
-					break;
 				}
-			}
+		} else if(seq_str == "[1;5C") { // Ctrl+Right
+				if(char_pos >= (int)buffer.size()) continue;
+				int new_pos = char_pos;
+				// Move right until space or end of buffer
+				while(new_pos < (int)buffer.size() && !isspace(buffer[new_pos])) {
+						new_pos++;
+				}
+				// Move one more to skip spaces if any (optional, depends on desired behavior)
+				while(new_pos < (int)buffer.size() && isspace(buffer[new_pos])) {
+						new_pos++;
+				}
+				int move = new_pos - char_pos;
+				if (move > 0) {
+						std::stringstream ss;
+						ss << "\x1b[" << move << "C";
+						io::print(ss.str());
+						char_pos = new_pos;
+				}
+		} else if(seq_str == "[1;5D") { // Ctrl+Left
+				if(char_pos <= 0) continue;
+				int new_pos = char_pos;
+				// Move left skipping spaces first
+				while(new_pos > 0 && isspace(buffer[new_pos - 1])) {
+						new_pos--;
+				}
+				// Move left until space or start of buffer
+				while(new_pos > 0 && !isspace(buffer[new_pos - 1])) {
+						new_pos--;
+				}
+				int move = char_pos - new_pos;
+				if (move > 0) {
+						std::stringstream ss;
+						ss << "\x1b[" << move << "D";
+						io::print(ss.str());
+						char_pos = new_pos;
+				}
+		}
 
 			continue;
 		}

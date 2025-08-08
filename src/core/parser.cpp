@@ -5,6 +5,33 @@
 #include "../builtin-cmds/alias.h"
 #include <regex>
 
+std::string unescape(const std::string& input) {
+    std::string result;
+    for (size_t i = 0; i < input.size(); ++i) {
+        if (input[i] == '\\' && i + 1 < input.size()) {
+            char next = input[++i];
+            switch (next) {
+                case 'a': result.push_back('\a'); break;
+                case 'b': result.push_back('\b'); break;
+                case 'e': result.push_back('\x1b'); break;  // escape char
+                case 'f': result.push_back('\f'); break;
+                case 'n': result.push_back('\n'); break;
+                case 'r': result.push_back('\r'); break;
+                case 't': result.push_back('\t'); break;
+                case 'v': result.push_back('\v'); break;
+                case '\\': result.push_back('\\'); break;
+                case '\'': result.push_back('\''); break;
+                case '"': result.push_back('\"'); break;
+                default:
+                    result.push_back('\\');
+                    result.push_back(next);
+            }
+        } else {
+            result.push_back(input[i]);
+        }
+    }
+    return result;
+}
 std::string bracket_to_ansi(std::string content) {
     io::replace_all(content, "(red)", red);
     io::replace_all(content, "(green)", green);
@@ -71,6 +98,7 @@ Args parse_arguments(std::string command) {
 	bool dq_mode = false;
 	bool sq_mode = false;
 	bool cq_mode = false;
+	bool literal = false;
 
 	// Detect and replace alias in the raw command string
 	std::string first_word;
@@ -93,6 +121,15 @@ Args parse_arguments(std::string command) {
 		if ((c == '"' || c == '\'') && !dq_mode && !sq_mode) {
 			if (i > 0 && parsed_command[i - 1] == '@') {
 				cq_mode = true;
+				if (!buffer.empty() && buffer.back() == '@') {
+					buffer.pop_back();
+				}
+			}
+			if (i > 0 && parsed_command[i - 1] == 'R') {
+				literal = true;
+				if (!buffer.empty() && buffer.back() == 'R') {
+					buffer.pop_back();
+				}
 			}
 			if (c == '"') dq_mode = true;
 			else sq_mode = true;
@@ -105,27 +142,14 @@ Args parse_arguments(std::string command) {
 				buffer = bracket_to_ansi(buffer);
 				cq_mode = false;
 			}
+			if(literal) {
+				buffer = unescape(buffer);
+				literal = false;
+			}
 			args.push_back(buffer);
 			buffer.clear();
 			dq_mode = false;
 			sq_mode = false;
-			continue;
-		}
-
-		// Escapes
-		if (c == '\\' && next != '\0') {
-			switch (next) {
-				case '"': buffer.push_back('\"'); break;
-				case '\'': buffer.push_back('\''); break;
-				case 'n': buffer.push_back('\n'); break;
-				case 't': buffer.push_back('\t'); break;
-				case '\\': buffer.push_back('\\'); break;
-				default:
-					buffer.push_back(c);
-					buffer.push_back(next);
-					break;
-			}
-			i++; // skip next char
 			continue;
 		}
 
