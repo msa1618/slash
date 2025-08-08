@@ -11,12 +11,6 @@ GitRepo::GitRepo(std::string repo_path) : repo(nullptr), path(repo_path) {
         if (git_repository_open_ext(&repo, current.c_str(), 0, nullptr) == 0) {
             path = current.string();
             break;
-        } else {
-            const git_error* err = giterr_last();
-            if (err) {
-                std::cerr << "libgit2 error: " << err->message << " (code " << err->klass << ")"
-                          << " at path: " << current << "\n";
-            }
         }
 
         if (current == current.root_path()) {
@@ -148,14 +142,7 @@ std::vector<std::pair<std::string, std::string>> GitRepo::get_file_changes(std::
             }
             return 0;
         },
-        &payload);
-
-		if(res != 0) {
-			auto error = giterr_last();
-			if (error) {
-			std::cerr << "libgit2 error: " << error->message << " (code " << error->klass << ")\n";
-	}
-		}		
+        &payload);	
 
     git_diff_free(diff);
 
