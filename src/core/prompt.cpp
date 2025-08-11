@@ -23,11 +23,12 @@
 
 #pragma region helpers
 
-std::string rgb_to_ansi(std::array<int, 3> rgb) {
+std::string rgb_to_ansi(std::array<int, 3> rgb, bool bg = false) {
 	int r = rgb[0], g = rgb[1], b = rgb[2];
 	if(r == 256 || g == 256 || b == 256) return "";
 	std::stringstream res;
-	res << "\x1b[38;2;" << r << ";" << g << ";" << b << "m";
+	if(bg) res << "\x1b[48;2;" << r << ";" << g << ";" << b << "m";
+	else res << "\x1b[38;2;" << r << ";" << g << ";" << b << "m";
 	return res.str();
 }
 
@@ -54,25 +55,42 @@ std::string get_battery_interface_path() {
 	return files[0];
 }
 
+std::string get_prompt_config_path() {
+    std::string home = getenv("HOME");
+    auto settings = get_json(home + "/.slash/config/settings.json");
+    if (settings.empty()) return get_prompt_config_path();
+
+    auto prompt_path = get_string(settings, "pathOfPromptTheme");
+    if (!prompt_path) return get_prompt_config_path();
+
+    // If path is relative, prefix home
+    if (prompt_path->starts_with("/")) return *prompt_path;
+    return home + "/" + *prompt_path;
+}
+
 #pragma endregion
 
 std::string get_time_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if(j.empty()) {
 		return "<failed>";
 	}
 	auto showSeconds = get_bool(j, "showSeconds", "time");
 	auto use24hr = get_bool(j, "twentyfourhr", "time");
-	auto color = get_int_array3(j, "color", "time");
+	auto foreground = get_int_array3(j, "foreground", "time");
+	auto background = get_int_array3(j, "background", "time");
 	auto bold = get_bool(j, "bold", "time").value_or(false);
 
 	auto after = get_string(j, "after", "time");
 	auto before = get_string(j, "before", "time");
 
 	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256}) {
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) {
+		ansi += rgb_to_ansi(*foreground);
+	}
+	if (background && *background != std::array<int, 3>{256, 256, 256}) {
+		ansi += rgb_to_ansi(*background, true);
 	}
 	if (bold) ansi = "\x1b[1m" + ansi;
 
@@ -99,30 +117,36 @@ std::string get_time_segment() {
 }
 
 std::string get_user_segment() {
-	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
-	if (j.empty()) return "";
+    std::string home = getenv("HOME");
+    auto j = get_json(get_prompt_config_path());
+    if (j.empty()) return "";
 
-	auto enabled = get_bool(j, "enabled", "user");
-	if (!enabled || !*enabled) return "";
+    auto enabled = get_bool(j, "enabled", "user");
+    if (!enabled || !*enabled) return "";
 
-	std::string user = getenv("USER") ?: "";
-	auto after = get_string(j, "after", "user").value_or("");
-	auto color = get_int_array3(j, "color", "user");
-	auto bold = get_bool(j, "bold", "user").value_or(false);
+    std::string user = getenv("USER") ?: "";
+    auto after = get_string(j, "after", "user").value_or("");
+    auto before = get_string(j, "before", "user").value_or("");
+    auto foreground = get_int_array3(j, "foreground", "user");
+    auto background = get_int_array3(j, "background", "user");
+    auto bold = get_bool(j, "bold", "user").value_or(false);
 
-	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256})
-		ansi = rgb_to_ansi(*color);
+    std::string ansi;
+    if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) {
+        ansi += rgb_to_ansi(*foreground);
+    }
+    if (background && *background != std::array<int, 3>{256, 256, 256}) {
+        ansi += rgb_to_ansi(*background, true); // true for background
+    }
+    if (bold) ansi = "\x1b[1m" + ansi;
 
-	if (bold) ansi = "\x1b[1m" + ansi;
-
-	return ansi + user + after + reset;
+    return ansi + before + user + after + reset;
 }
+
 
 std::string get_group_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return "";
 
 	auto enabled = get_bool(j, "enabled", "group");
@@ -133,21 +157,25 @@ std::string get_group_segment() {
 	std::string group = grp ? grp->gr_name : "";
 
 	auto after = get_string(j, "after", "group").value_or("");
-	auto color = get_int_array3(j, "color", "group");
+	auto before = get_string(j, "before", "group").value_or("");
+	auto foreground = get_int_array3(j, "foreground", "group");
+	auto background = get_int_array3(j, "background", "group");
 	auto bold = get_bool(j, "bold", "group").value_or(false);
 
 	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256})
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*foreground);
+	if (background && *background != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*background, true);
 
 	if (bold) ansi = "\x1b[1m" + ansi;
 
-	return ansi + group + after + reset;
+	return ansi + before + group + after + reset;
 }
 
 std::string get_hostname_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return "";
 
 	auto enabled = get_bool(j, "enabled", "hostname");
@@ -157,21 +185,25 @@ std::string get_hostname_segment() {
 	gethostname(hostname, sizeof(hostname));
 
 	auto after = get_string(j, "after", "hostname").value_or("");
-	auto color = get_int_array3(j, "color", "hostname");
+	auto before = get_string(j, "before", "user").value_or("");
+	auto foreground = get_int_array3(j, "foreground", "hostname");
+	auto background = get_int_array3(j, "background", "hostname");
 	auto bold = get_bool(j, "bold", "hostname").value_or(false);
 
 	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256})
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*foreground);
+	if (background && *background != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*background, true);
 
 	if (bold) ansi = "\x1b[1m" + ansi;
 
-	return ansi + std::string(hostname) + after + reset;
+	return ansi + before + std::string(hostname) + after + reset;
 }
 
 std::string get_ssh_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return "";
 
 	auto enabled = get_bool(j, "enabled", "ssh");
@@ -180,22 +212,26 @@ std::string get_ssh_segment() {
 	if (!is_ssh_server()) return "";
 
 	auto after = get_string(j, "after", "ssh").value_or("");
+	auto before = get_string(j, "before", "user").value_or("");
 	auto text = get_string(j, "text", "ssh").value_or("ssh");
-	auto color = get_int_array3(j, "color", "ssh");
+	auto foreground = get_int_array3(j, "foreground", "ssh");
+	auto background = get_int_array3(j, "background", "ssh");
 	auto bold = get_bool(j, "bold", "ssh").value_or(false);
 
 	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256})
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*foreground);
+	if (background && *background != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*background, true);
 
 	if (bold) ansi = "\x1b[1m" + ansi;
 
-	return ansi + text + after + reset;
+	return ansi + before + text + after + reset;
 }
 
 std::string get_git_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return "";
 
 	auto enabled = get_bool(j, "enabled", "git-branch");
@@ -208,27 +244,33 @@ std::string get_git_segment() {
 	if (branch.empty()) return "";
 
 	auto after = get_string(j, "after", "git-branch").value_or("");
-	auto color = get_int_array3(j, "color", "git-branch");
+	auto before = get_string(j, "before", "user").value_or("");
+	auto foreground = get_int_array3(j, "foreground", "git-branch");
+	auto background = get_int_array3(j, "background", "git-branch");
 	auto bold = get_bool(j, "bold", "git-branch").value_or(false);
 
 	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256})
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*foreground);
+	if (background && *background != std::array<int, 3>{256, 256, 256})
+		ansi += rgb_to_ansi(*background, true);
 
 	if (bold) ansi = "\x1b[1m" + ansi;
 
-	return ansi + branch + after + reset;
+	return ansi + before + branch + after + reset;
 }
 
 std::string get_cwd_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return "";
 
 	auto enabled = get_bool(j, "enabled", "currentdir");
 	if (!enabled || !*enabled) return "";
 
-	auto color = get_int_array3(j, "color", "currentdir");
+	auto foreground = get_int_array3(j, "foreground", "currentdir");
+	auto background = get_int_array3(j, "background", "currentdir");
+	auto before = get_string(j, "before", "user").value_or("");
 	auto after = get_string(j, "after", "currentdir").value_or("");
 	auto bold = get_bool(j, "bold", "currentdir").value_or(false);
 
@@ -240,39 +282,44 @@ std::string get_cwd_segment() {
 		cwd.replace(0, home_str.size(), "~");
 
 	std::string ansi;
-	if (color && *color != std::array<int, 3>{256, 256, 256})
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) ansi += rgb_to_ansi(*foreground);
+	if (background && *background != std::array<int, 3>{256, 256, 256}) ansi += rgb_to_ansi(*background, true);
 
 	if (bold) ansi = "\x1b[1m" + ansi;
 
-	return ansi + cwd + after + reset;
+	return ansi + before + cwd + after + reset;
 }
 
 std::string get_prompt_segment() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return "";
 
 	auto enabled = get_bool(j, "enabled", "prompt");
 	if (!enabled || !*enabled) return "";
 
-	auto color = get_int_array3(j, "color", "prompt");
+	auto foreground = get_int_array3(j, "foreground", "prompt");
+	auto background = get_int_array3(j, "background", "prompt");
 	auto after = get_string(j, "after", "prompt").value_or("");
+	auto before = get_string(j, "before", "user").value_or("");
 	auto character = get_string(j, "character", "prompt").value_or(">");
 	auto bold = get_bool(j, "bold", "prompt").value_or(false);
 	auto newlineBefore = get_bool(j, "newlineBefore", "prompt").value_or(false);
 	auto newlineAfter = get_bool(j, "newlineAfter", "prompt").value_or(false);
 
 	std::string ansi = "";
-	if (color && *color != std::array<int, 3>{256, 256, 256}) {
-		ansi = rgb_to_ansi(*color);
+	if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) {
+		ansi += rgb_to_ansi(*foreground);
+	}
+	if(background && *background != std::array<int, 3>{256, 256, 256}) {
+		ansi += rgb_to_ansi(*background, true);
 	}
 	if (bold) ansi = "\x1b[1m" + ansi;
 
 	std::stringstream out;
 
 	if (newlineBefore) out << "\n" << "\x1b[2K";
-	out << ansi << character << after << reset;
+	out << ansi << before << character << after << reset;
 	if (newlineAfter) out << "\n";
 
 
@@ -281,7 +328,7 @@ std::string get_prompt_segment() {
 
 void draw_prompt() {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return;
 	std::stringstream prompt;
 
@@ -316,7 +363,7 @@ void draw_prompt() {
 
 void redraw_prompt(std::string content) {
 	std::string home = getenv("HOME");
-	auto j = get_json(home + "/.slash/config/prompts/default.json");
+	auto j = get_json(get_prompt_config_path());
 	if (j.empty()) return;
 
 	auto newline_before = get_bool(j, "newlineBefore", "prompt");
@@ -333,14 +380,14 @@ void redraw_prompt(std::string content) {
 std::string highl(std::string prompt) {
 	// Right now it's hardcoded. No matter how hard I tried, I couldn't get JSON to work with it.
 	// It's better than no highlighting tho :)
-	boost::regex quotes("\"[^\"]*\"");
+	boost::regex quotes("\"([^\"\\\\]|\\\\.)*\"");
 	boost::regex comments("\\#.*");
 	boost::regex operators(">>|&&|\\|\\||[|&>]");
 	boost::regex paths("(/[^\\s|&><#\"]+)|(\\.{1,2}(/[^\\s|&><#\"]*)*)|(~)");
 	boost::regex flags("-[A-Za-z0-9\\-_]+");
 	boost::regex bools("(true|false)");
 	boost::regex numbers("[0-9]");
-	boost::regex quote_pref("(R|@)(?=\"[^\"]*\")");
+	boost::regex quote_pref("(E|@)(?=\"[^\"]*\")");
 	// I know its lengthy but boost::regex doesnt support variable length lookbehinds. Atleast theres lookbehind support unlike std::regex
 	boost::regex cmds(R"((?:^|\s*(?<=&&)|\s*(?<=\|)|\s*(?<=;))\s*([^\s]+))"); 
 	boost::regex opers(R"((&&|\|\||\||;))");
@@ -468,7 +515,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 						io::print("\x1b[D");
 						char_pos--;
 				}
-		} else if(seq_str == "[1;5C") { // Ctrl+Right
+		} else if(seq_str == "[1;5C" || seq_str == "[1;2C") { // Ctrl+Right and Shift+Right
 				if(char_pos >= (int)buffer.size()) continue;
 				int new_pos = char_pos;
 				// Move right until space or end of buffer
@@ -486,7 +533,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 						io::print(ss.str());
 						char_pos = new_pos;
 				}
-		} else if(seq_str == "[1;5D") { // Ctrl+Left
+		} else if(seq_str == "[1;5D" || seq_str == "[1;2D") { // Ctrl+Left and Shift+Left
 				if(char_pos <= 0) continue;
 				int new_pos = char_pos;
 				// Move left skipping spaces first
@@ -504,6 +551,12 @@ std::variant<std::string, int> read_input(int& history_index) {
 						io::print(ss.str());
 						char_pos = new_pos;
 				}
+		} else if(seq_str == "[1;3D") {
+			std::stringstream ss;
+			ss << "\x1b[3G";
+			io::print(ss.str());
+
+			char_pos = 0;
 		}
 
 			continue;
