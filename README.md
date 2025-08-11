@@ -1,3 +1,10 @@
+# Welcome to slash!
+![slash unconfirmed logo](unconfirmed_logo.svg)  
+*Unconfirmed slash logo*<br><br>
+
+To the 27 people who saw this repository, I DIDN'T EVEN KNOW PEOPLE WERE AWARE OF THIS
+
+slash is a project that aims to create a customizable, vibrant, and modern shell, along with a suite of utilities designed for educational, practical, and evcen creative use cases!
 # Slash is in Beta!
 All the basics of a shell were added, and finished on 17 June 2025. Slash is not in Alpha anymore. This means:
 1. Slash is almost eligible to become a legitimate shell
