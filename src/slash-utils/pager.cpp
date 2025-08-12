@@ -36,9 +36,9 @@ class Pager {
       footer << " " << filepath;
 
       std::string left = footer.str();
-      std::string right = std::to_string(percentage) + "% ";
+      std::string right = "(↑/↓ to scroll) " + std::to_string(percentage) + "% ";
 
-      int space_len = width - (int)strip_ansi(left).length() - (int)strip_ansi(right).length();
+      int space_len = (width - strip_ansi(left).length() - strip_ansi(right).length()) + 4; // 4 because of the extra size they take coz theyre not ascii
       if(space_len < 0) space_len = 0;
 
       std::string line = left + std::string(space_len, ' ') + right + reset;
