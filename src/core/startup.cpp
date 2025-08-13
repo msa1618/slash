@@ -7,24 +7,50 @@
 #include "../abstractions/info.h"
 #include "execution.h"
 
-static termios orig;
+void enable_canonical_mode() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t); // start from current state to avoid messing unrelated flags
 
-void disable_raw_mode() {
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig);
+    t.c_lflag |= ICANON | ECHO | ISIG; // enable canonical input, echo, signals
+    t.c_iflag |= ICRNL;                // translate CR to NL
+    t.c_oflag |= OPOST;                // enable output processing
+
+    t.c_cc[VMIN] = 1;                  // minimum chars for read
+    t.c_cc[VTIME] = 0;                 // no timeout
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &t);
 }
 
 void enable_raw_mode() {
-	tcgetattr(STDIN_FILENO, &orig);
-	atexit(disable_raw_mode);
+		struct termios orig;
 
-	termios raw = orig;
-	raw.c_lflag &= ~(ECHO | ICANON);
-	raw.c_lflag &= ~(OPOST);
-	raw.c_cc[VMIN] = 1;
-	raw.c_cc[VTIME] = 0;
+    // Get current terminal attributes and save to orig
+    if (tcgetattr(STDIN_FILENO, &orig) == -1) {
+        perror("tcgetattr");
+        exit(1);
+    }
 
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+    termios raw = orig;
+
+    // Input flags - disable canonical mode, disable Ctrl-S/Q and other input processing
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+
+    // Control flags - set 8-bit chars
+    raw.c_cflag |= (CS8);
+
+    // Local flags - disable echo, canonical mode, extended functions and signals
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+
+    // Control chars - read returns as soon as 1 byte is available, no timeout
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
+        perror("tcsetattr");
+        exit(1);
+    }
 }
+
 
 ///////////////////////////////////////////////////////
 

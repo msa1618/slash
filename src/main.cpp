@@ -10,6 +10,7 @@
 
 #include "abstractions/iofuncs.h"
 #include "abstractions/info.h"
+#include <termios.h>
 
 #define EXIT 5000
 
@@ -17,6 +18,7 @@ int exec(std::vector<std::string> args, std::string raw_input, bool save_to_hist
 	raw_input = io::trim(raw_input);
 	if(args.empty()) return 0;
 	if(args[0] == "exit") {
+		enable_canonical_mode();
 		return EXIT;
 	}
 
@@ -100,7 +102,6 @@ int exec(std::vector<std::string> args, std::string raw_input, bool save_to_hist
 
 int main(int argc, char* argv[]) {
     signal(SIGINT, SIG_IGN);
-    atexit(disable_raw_mode);
 
 		std::string HOME = getenv("HOME");
     auto cnt = get_json(HOME + "/.slash/config/prompts/default.json");
@@ -131,7 +132,5 @@ int main(int argc, char* argv[]) {
 
         if(exec(args, input, true) == EXIT) break;
     }
-
-    disable_raw_mode();
     return 0;
 }
