@@ -61,6 +61,55 @@ int save_to_history(std::vector<std::string>& parsed_arg, std::string input) {
 	} else return 0;
 }
 
+std::string get_signal_name(int signal) {
+    static const std::unordered_map<int, std::string> signal_names = {
+        {SIGHUP, "SIGHUP"},
+        {SIGINT, "SIGINT"},
+        {SIGQUIT, "SIGQUIT"},
+        {SIGILL, "SIGILL"},
+        {SIGTRAP, "SIGTRAP"},
+        {SIGABRT, "SIGABRT"},
+    #ifdef SIGIOT
+        {SIGIOT, "SIGIOT"},
+    #endif
+        {SIGBUS, "SIGBUS"},
+        {SIGFPE, "SIGFPE"},
+        {SIGKILL, "SIGKILL"},
+        {SIGUSR1, "SIGUSR1"},
+        {SIGSEGV, "SIGSEGV"},
+        {SIGUSR2, "SIGUSR2"},
+        {SIGPIPE, "SIGPIPE"},
+        {SIGALRM, "SIGALRM"},
+        {SIGTERM, "SIGTERM"},
+    #ifdef SIGSTKFLT
+        {SIGSTKFLT, "SIGSTKFLT"},
+    #endif
+        {SIGCHLD, "SIGCHLD"},
+        {SIGCONT, "SIGCONT"},
+        {SIGSTOP, "SIGSTOP"},
+        {SIGTSTP, "SIGTSTP"},
+        {SIGTTIN, "SIGTTIN"},
+        {SIGTTOU, "SIGTTOU"},
+        {SIGURG, "SIGURG"},
+        {SIGXCPU, "SIGXCPU"},
+        {SIGXFSZ, "SIGXFSZ"},
+        {SIGVTALRM, "SIGVTALRM"},
+        {SIGPROF, "SIGPROF"},
+        {SIGWINCH, "SIGWINCH"},
+        {SIGIO, "SIGIO"},
+    #ifdef SIGPWR
+        {SIGPWR, "SIGPWR"},
+    #endif
+    #ifdef SIGSYS
+        {SIGSYS, "SIGSYS"},
+    #endif
+    };
+
+    auto it = signal_names.find(signal);
+    return (it != signal_names.end()) ? it->second : "UNKNOWN";
+}
+
+
 #pragma endregion
 
 int redirect(std::vector<std::string>& parsed_args, std::string input, bool save_to_hist, std::string path, bool append, bool stdout) {
@@ -188,7 +237,7 @@ int pipe_execute(std::vector<std::vector<std::string>> commands) {
     return exit_status;
 }
 
-int execute(std::vector<std::string> parsed_args, std::string input, bool save_to_history) {
+int execute(std::vector<std::string> parsed_args, std::string input, bool save_to_history, bool bg, bool devnull) {
 	if (parsed_args.empty()) return 0;
 
 	std::string cmd = parsed_args[0]; // To save the original command name instead of ~/slash-utils/cmd if it's a slash utility
@@ -243,6 +292,21 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 	}
 
 	if (pid == 0) {
+		enable_canonical_mode();
+		signal(SIGINT, SIG_DFL);
+
+		if(bg) {
+			setpgid(0, 0);
+			int devnu = open("/dev/null", O_RDWR);
+			dup2(devnu, STDIN_FILENO);
+			close(devnu);
+
+			if(devnull) {
+        if(dup2(devnu, STDOUT_FILENO)) { info::error(std::string("Failed to redirect stdout to /dev/null: ") + strerror(errno), errno); }
+				if(dup2(devnu, STDERR_FILENO)) { info::error(std::string("Failed to redirect stderr to /dev/null: ") + strerror(errno), errno); }
+    	}
+		}
+
 		std::vector<char*> argv;
 		for (auto& arg : parsed_args) {
 			argv.push_back(const_cast<char*>(arg.c_str()));
@@ -266,12 +330,25 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 		info::error(err, errno);
 		exit(errno); // terminate child
 	} else {
-		int status;
-		waitpid(pid, &status, 0);
-		if(WIFEXITED(status)) {
-			int errcode = WEXITSTATUS(status);
-			print_exit_code_if_enabled(errcode);
-			return errcode;
+		enable_raw_mode();
+		if(!bg) {
+			int status;
+			waitpid(pid, &status, 0);
+
+			tcsetpgrp(STDIN_FILENO, getpgrp()); // return control to shell
+			if(WIFEXITED(status)) {
+				int errcode = WEXITSTATUS(status);
+				print_exit_code_if_enabled(errcode);
+				return errcode;
+			} else if (WIFSIGNALED(status)) {
+        int sig = WTERMSIG(status);
+        io::print(red + "[Process terminated by signal " + get_signal_name(sig) + "]\n" + reset);
+        return 128 + sig;
+      }
+		} else {
+			setpgid(pid, pid);
+			io::print(yellow + "[Process running in the background, pid " + std::to_string(pid) + "]\n" + reset);
+			return 0;
 		}
 	}
 }

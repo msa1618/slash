@@ -131,6 +131,8 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> args = parse_arguments(input);
 
         if(exec(args, input, true) == EXIT) break;
+				// re-enable
+				enable_raw_mode();
     }
     return 0;
 }
