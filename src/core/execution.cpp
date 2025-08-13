@@ -11,6 +11,7 @@
 #include "../builtin-cmds/alias.h"
 #include "startup.h"
 #include <nlohmann/json.hpp>
+#include <thread>
 
 #pragma region helpers
 
@@ -111,6 +112,48 @@ std::string get_signal_name(int signal) {
 
 
 #pragma endregion
+
+volatile sig_atomic_t interrupted = 0; // For Ctrl+C 
+volatile sig_atomic_t kill_req    = 0;
+
+void handle_sigint(int) {
+	interrupted = 1;
+}
+
+std::string message(int sig, bool core_dumped) {
+    std::string red   = "\033[31m";
+    std::string yellow= "\033[33m";
+    std::string cyan  = "\033[36m";
+    std::string reset = "\033[0m";
+
+    // Map signals to colors
+    static std::map<int, std::string> sig_color = {
+        {SIGHUP, cyan}, {SIGINT, yellow}, {SIGQUIT, red}, {SIGILL, red},
+        {SIGTRAP, red}, {SIGABRT, red}, {SIGBUS, red}, {SIGFPE, red},
+        {SIGKILL, red}, {SIGUSR1, yellow}, {SIGSEGV, red}, {SIGUSR2, yellow},
+        {SIGPIPE, cyan}, {SIGALRM, cyan}, {SIGTERM, yellow}, {SIGSTKFLT, red},
+        {SIGCHLD, cyan}, {SIGCONT, cyan}, {SIGSTOP, red}, {SIGTSTP, yellow},
+        {SIGTTIN, cyan}, {SIGTTOU, cyan}, {SIGURG, cyan}, {SIGXCPU, red},
+        {SIGXFSZ, red}, {SIGVTALRM, cyan}, {SIGPROF, cyan}, {SIGWINCH, cyan},
+        {SIGPOLL, cyan}, {SIGPWR, red}, {SIGSYS, red}
+    };
+
+    const char* sig_name = strsignal(sig); // human-readable signal name
+    std::string color = sig_color.count(sig) ? sig_color[sig] : yellow;
+
+    if(color == red) {
+        std::stringstream ss;
+				ss << red << "[Terminated: " << strsignal(sig);
+				if(core_dumped) ss << "(core dumped)";
+				ss << "]";
+				return ss.str();
+    } else if(color == yellow) {
+        return yellow + "[" + sig_name + "]" + reset;
+    } else { // cyan
+        return cyan + "[Notification: " + sig_name + "]" + reset;
+    }
+}
+
 
 int redirect(std::vector<std::string>& parsed_args, std::string input, bool save_to_hist, std::string path, bool append, bool stdout) {
 	if(save_to_hist) save_to_history(parsed_args, input);
@@ -292,11 +335,11 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 	}
 
 	if (pid == 0) {
+		setpgid(0, 0);
 		enable_canonical_mode();
 		signal(SIGINT, SIG_DFL);
 
 		if(bg) {
-			setpgid(0, 0);
 			int devnu = open("/dev/null", O_RDWR);
 			dup2(devnu, STDIN_FILENO);
 			close(devnu);
@@ -330,25 +373,48 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 		info::error(err, errno);
 		exit(errno); // terminate child
 	} else {
-		enable_raw_mode();
-		if(!bg) {
-			int status;
-			waitpid(pid, &status, 0);
+		struct sigaction sa{};
+		sa.sa_handler = handle_sigint;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = 0;
+		sigaction(SIGINT, &sa, nullptr);
 
-			tcsetpgrp(STDIN_FILENO, getpgrp()); // return control to shell
-			if(WIFEXITED(status)) {
-				int errcode = WEXITSTATUS(status);
-				print_exit_code_if_enabled(errcode);
-				return errcode;
-			} else if (WIFSIGNALED(status)) {
-        int sig = WTERMSIG(status);
-        io::print(red + "[Process terminated by signal " + get_signal_name(sig) + "]\n" + reset);
-        return 128 + sig;
-      }
+		signal(SIGTTOU, SIG_IGN);
+		setpgid(pid, pid);
+
+		if (!bg) {
+				int status;
+				while (true) {
+						tcsetpgrp(STDIN_FILENO, pid); 
+						pid_t result = waitpid(pid, &status, WNOHANG);
+
+						if (result == pid) {
+								// Child exited
+								tcsetpgrp(STDIN_FILENO, getpgrp()); // return control to shell
+								signal(SIGTTOU, SIG_DFL);
+								if (WIFEXITED(status)) {
+										int errcode = WEXITSTATUS(status);
+										print_exit_code_if_enabled(errcode);
+										return errcode;
+								} else if (WIFSIGNALED(status)) {
+										int sig = WTERMSIG(status);
+										bool dumped = WCOREDUMP(status);
+										
+										io::print(message(sig, dumped) + "\n");
+										return 128 + sig;
+								}
+								break;
+						}
+						if (interrupted) {
+								kill(pid, SIGINT);
+								break;
+						}
+						std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Small sleep to avoid busy loop
+				}
 		} else {
-			setpgid(pid, pid);
-			io::print(yellow + "[Process running in the background, pid " + std::to_string(pid) + "]\n" + reset);
-			return 0;
+				setpgid(pid, pid);
+				io::print(yellow + "[Process running in the background, pid " + std::to_string(pid) + "]\n" + reset);
+				return 0;
 		}
 	}
 }
