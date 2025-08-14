@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <cstdlib>
 #include <cstring>
+#include <chrono>
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
 #include "../builtin-cmds/cd.h"
@@ -15,7 +16,7 @@
 
 #pragma region helpers
 
-void print_exit_code_if_enabled(int code) {
+bool is_print_exit_code_enabled() {
 	bool pec = false;
 	auto settings = io::read_file(slash_dir + "/config/settings.json");
 	nlohmann::json json;
@@ -26,27 +27,22 @@ void print_exit_code_if_enabled(int code) {
 		std::stringstream error;
 		error << "Failed to open settings.json: " << strerror(errno);
 		info::error(error.str(), errno, "settings.json");
-		return;
+		return false;
 	}
 
 	if(json.contains("printExitCodeWhenProgramExits")) {
 	 	pec = json["printExitCodeWhenProgramExits"];
 	} else {
 		info::error("Missing \"printExitCodeWhenProgramExits\" property in settings");
-		return;
+		return false;
 	}
 
-	if(!pec) return;
+	if(!pec) return false;
 
-	if(code == 0) {
-		io::print(green + "[Exited with exit code 0]\n" + reset);
-	} else {
-		std::string code_str = std::to_string(code);
-		io::print(red + "[Exited with exit code " + code_str + "]\n" + reset);
-	}
+	return pec;
 }
 
-int save_to_history(std::vector<std::string>& parsed_arg, std::string input) {
+int save_to_history(std::vector<std::string> parsed_arg, std::string input) {
 	std::string cmd = io::split(input, " ")[0];
 	std::string full_path = getenv("HOME") + std::string("/.slash/slash-utils/") + cmd;
 	if(access(full_path.c_str(), X_OK) == 0) {
@@ -154,57 +150,6 @@ std::string message(int sig, bool core_dumped) {
     }
 }
 
-
-int redirect(std::vector<std::string>& parsed_args, std::string input, bool save_to_hist, std::string path, bool append, bool stdout) {
-	if(save_to_hist) save_to_history(parsed_args, input);
-
-	bool is_slashutil = false;
-	std::string cmd = io::split(input, " ")[0];
-	std::string home = std::string(getenv("HOME"));
-	std::string full_path = home + "/.slash/slash-utils/" + cmd;
-	if(access(full_path.c_str(), X_OK) == 0) {
-		parsed_args[0] = full_path;
-		is_slashutil = true;
-	}
-	
-	pid_t pid = fork();
-	if(pid == 0) {
-		int STD_FD = stdout ? 1 : 2;
-
-		int flags = O_WRONLY | O_CREAT;
-		if(append) flags |= O_APPEND;
-		else flags |= O_TRUNC;
-
-		int fd = open(path.c_str(), flags, 0644);
-		if(fd < 0) {
-			std::string error = std::string("Failed to get file's file descriptor. If the file doesn't exist, this is not the reason. Error: ") + strerror(errno);
-			info::error(error, errno);
-			return errno;
-		}
-
-		if(dup2(fd, STD_FD) == -1) {
-			std::string error = std::string("Failed to pipe stdout/stderr to file: ") + strerror(errno);
-			info::error(error, errno);
-			return errno;
-		}
-
-		std::vector<char*> argv;
-    for (auto& arg : parsed_args) argv.push_back(const_cast<char*>(arg.c_str()));
-    argv.push_back(nullptr); // execvp expects null-terminated array
-
-     // --- Execute command ---
-    //if(is_slashutil) execv(argv[0], argv.data());
-		execvp(argv[0], argv.data());
-
-    info::error(std::string("execvp failed: ") + strerror(errno), errno);
-    exit(errno);
-	} else if(pid > 0) {
-		int status;
-		waitpid(pid, &status, 0);
-		return WEXITSTATUS(status);
-	}
-}
-
 int pipe_execute(std::vector<std::vector<std::string>> commands) {
     int n = commands.size();
     if (n == 0) return 0;
@@ -278,9 +223,9 @@ int pipe_execute(std::vector<std::vector<std::string>> commands) {
     }
 
     return exit_status;
-}
+	}
 
-int execute(std::vector<std::string> parsed_args, std::string input, bool save_to_history, bool bg, bool devnull) {
+int execute(std::vector<std::string> parsed_args, std::string input, bool save_to_history, bool bg, RedirectInfo rinfo) {
 	if (parsed_args.empty()) return 0;
 
 	std::string cmd = parsed_args[0]; // To save the original command name instead of ~/slash-utils/cmd if it's a slash utility
@@ -294,6 +239,18 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 	if (access(cmd_path.c_str(), X_OK) == 0) {
 		parsed_args[0] = cmd_path;
 		using_path = true;
+	}
+
+	bool stdout_only   = io::vecContains(parsed_args, "@o");
+	bool stderr_only   = io::vecContains(parsed_args, "@O");
+	bool time          = io::vecContains(parsed_args, "@t");
+	bool repeat        = io::vecContains(parsed_args, "@r");
+	bool print_exit    = io::vecContains(parsed_args, "@e") || is_print_exit_code_enabled();
+
+	if(!parsed_args.empty()) {
+		while(parsed_args.back() == "@e" || parsed_args.back() == "@o" || parsed_args.back() == "@O" || parsed_args.back() == "@r" || parsed_args.back() == "@t") {
+			parsed_args.pop_back();
+		}
 	}
 
 	std::vector<std::string> original_cmd = io::split(input, " ");
@@ -334,21 +291,36 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 		return -1;
 	}
 
+	auto start = std::chrono::high_resolution_clock::now();
+
 	if (pid == 0) {
 		setpgid(0, 0);
 		enable_canonical_mode();
 		signal(SIGINT, SIG_DFL);
 
-		if(bg) {
-			int devnu = open("/dev/null", O_RDWR);
-			dup2(devnu, STDIN_FILENO);
-			close(devnu);
+		if(rinfo.enabled) {
+			int flags = O_WRONLY | O_CREAT; // Create if doesn't exist
+			if(rinfo.append) flags |= O_APPEND;
+			else flags |= O_TRUNC;
 
-			if(devnull) {
-        if(dup2(devnu, STDOUT_FILENO)) { info::error(std::string("Failed to redirect stdout to /dev/null: ") + strerror(errno), errno); }
-				if(dup2(devnu, STDERR_FILENO)) { info::error(std::string("Failed to redirect stderr to /dev/null: ") + strerror(errno), errno); }
-    	}
+			int fd = open(rinfo.filepath.c_str(), flags, 0644);
+			if(fd < 0) {
+				info::error(std::string("Failed to open file: ") + strerror(errno));
+				return errno;
+			}
+
+			int stdfd = rinfo.stdout_ ? STDOUT_FILENO : STDERR_FILENO;
+			dup2(fd, stdfd);
 		}
+
+		if(time) {
+			io::print(cyan + "[Timer started]\n" + reset);
+		}
+
+		int devnu = open("/dev/null", O_RDWR);
+
+		if(stdout_only) dup2(devnu, STDERR_FILENO);
+		if(stderr_only) dup2(devnu, STDOUT_FILENO);
 
 		std::vector<char*> argv;
 		for (auto& arg : parsed_args) {
@@ -391,10 +363,36 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
 						if (result == pid) {
 								// Child exited
 								tcsetpgrp(STDIN_FILENO, getpgrp()); // return control to shell
+
+								if(time) {
+										auto end = std::chrono::high_resolution_clock::now();
+										auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+										int hours = elapsed.count() / 3600000;
+										int minutes = (elapsed.count() % 3600000) / 60000;
+										int seconds = (elapsed.count() % 60000) / 1000;
+										int milliseconds = elapsed.count() % 1000;
+
+										std::stringstream ss;
+										ss << cyan << "[Elapsed time: "
+											<< std::setw(2) << std::setfill('0') << hours << ":"
+											<< std::setw(2) << std::setfill('0') << minutes << ":"
+											<< std::setw(2) << std::setfill('0') << seconds << ":"
+											<< std::setw(3) << std::setfill('0') << milliseconds
+											<< "]\n" << reset;
+
+										io::print(ss.str());		 
+								}
 								signal(SIGTTOU, SIG_DFL);
 								if (WIFEXITED(status)) {
 										int errcode = WEXITSTATUS(status);
-										print_exit_code_if_enabled(errcode);
+										if(print_exit) {
+											if(errcode == 0) io::print(green + "[Process exited with exit code 0]" + reset + "\n");
+											else io::print(red + "[Process exited with exit code " + std::to_string(errcode) + "]\n" + reset);
+										}
+										if(errcode != 0 && repeat) {
+											return execute(parsed_args, input, save_to_history, bg, rinfo);
+										}
 										return errcode;
 								} else if (WIFSIGNALED(status)) {
 										int sig = WTERMSIG(status);

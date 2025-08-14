@@ -385,24 +385,24 @@ std::string highl(std::string prompt) {
 	boost::regex operators(">>|&&|\\|\\||[|&>]");
 	boost::regex paths("(/[^\\s|&><#\"]+)|(\\.{1,2}(/[^\\s|&><#\"]*)*)|(~)");
 	boost::regex flags("-[A-Za-z0-9\\-_]+");
-	boost::regex bools("(true|false)");
 	boost::regex numbers("[0-9]");
 	boost::regex quote_pref("(E|@)(?=\"[^\"]*\")");
 	// I know its lengthy but boost::regex doesnt support variable length lookbehinds. Atleast theres lookbehind support unlike std::regex
 	boost::regex cmds(R"((?:^|\s*(?<=&&)|\s*(?<=\|)|\s*(?<=;))\s*([^\s]+))"); 
 	boost::regex opers(R"((&&|\|\||\||;))");
+	boost::regex exec_flags(R"(@(r|t|o|O|e))");
 
 	const std::string cmd_color         = "\x1b[38;2;158;227;125m";
-	const std::string bool_color        = "\x1b[38;2;52;25;25m";
 	const std::string number_color      = "\x1b[38;2;52;160;164m";
 	const std::string flag_color        = "\x1b[38;2;131;197;190m";
 	const std::string path_color        = "\x1b[38;2;221;161;94m";
 	const std::string comment_color     = "\x1b[38;2;73;80;87m";
 	const std::string quote_color       = "\x1b[38;2;88;129;87m";
 	const std::string quote_pref_color  = "\x1b[38;2;221;161;94m";
+	const std::string exec_flags_color  = magenta;
 
 	std::vector<std::pair<boost::regex, std::string>> patterns = {
-			{bools, bool_color},
+			{exec_flags, exec_flags_color},
 			{numbers, number_color},
 			{flags, flag_color},
 			{paths, path_color},
@@ -425,7 +425,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 	while(true) {
 		if(read(STDIN_FILENO, &c, 1) != 1) continue;
 
-		if(c == '\n') {
+		if(c == '\n' || c == '\r') {
 			io::print("\n");
 			break;
 		}

@@ -14,89 +14,94 @@
 
 #define EXIT 5000
 
-int exec(std::vector<std::string> args, std::string raw_input, bool save_to_history) {
-	raw_input = io::trim(raw_input);
-	if(args.empty()) return 0;
-	if(args[0] == "exit") {
-		enable_canonical_mode();
-		return EXIT;
-	}
+int exec(std::vector<std::string> args, std::string raw_input, bool save_to_his) {
+    raw_input = io::trim(raw_input);
+    if (args.empty()) return 0;
 
-	if(args[0] == "cd") {
-		return cd(args);
-	}
+    if (args[0] == "exit") {
+        enable_canonical_mode();
+        return EXIT;
+    }
 
-	bool bg = false;
-	bool devnull = false;
-	if(raw_input.ends_with("&n")) {
-    bg = true;
-    devnull = true;
-    args.pop_back();
-	} else if(raw_input.ends_with("&")) {
-			bg = true;
-			args.pop_back();
-	}
+    if (args[0] == "cd") {
+        return cd(args);
+    }
 
-	if(io::split(raw_input, ";").size() > 1) {
-		for(auto cmd : io::split(raw_input, ";")) {
-			cmd = io::trim(cmd);
-			int res = exec(parse_arguments(cmd), cmd, save_to_history);
-			if (res == EXIT) return EXIT;
-		}
-		return 0;
-	}
+		bool bg = false;
+		if (raw_input.ends_with("&")) {
+        bg = true;
+        args.pop_back();
+    }
 
-	if(io::split(raw_input, "&&").size() > 1) {
-		for(auto cmd : io::split(raw_input, "&&")) {
-			cmd = io::trim(cmd);
-			int res = execute(parse_arguments(cmd), cmd, save_to_history, bg, devnull);
-			if (res == EXIT) return EXIT;
-			if (res != 0) break;
-		}
-		return 0;
-	}
+    // Handle redirection
+    RedirectInfo rinfo;
+		rinfo.enabled = false;
+    if (io::vecContains(args, ">") || io::vecContains(args, ">>") || io::vecContains(args, "2>") || io::vecContains(args, "2>>")) {
+        bool stdout_ = !io::vecContains(args, "2>") && !io::vecContains(args, "2>>");
+        rinfo.stdout_ = stdout_;
+        rinfo.append = io::vecContains(args, ">>") && io::vecContains(args, "2>>");
+        rinfo.enabled = true;
 
-	if(io::split(raw_input, "||").size() > 1) {
-		for(auto cmd : io::split(raw_input, "||")) {
-			cmd = io::trim(cmd);
-			int res = execute(parse_arguments(cmd), cmd, save_to_history, bg, devnull);
-			if (res == EXIT) return EXIT;
-			if (res == 0) break;
-		}
-		return 0;
-	}
+        std::string redirect_op = rinfo.append ? (stdout_ ? ">>" : "2>>") : (stdout_ ? ">" : "2>");
+        std::vector<std::string> parts = io::split(raw_input, redirect_op);
+        if (parts.size() != 2) {
+            info::error("Invalid redirection syntax", 1);
+            return -1;
+        }
 
-	if(io::split(raw_input, "|").size() > 1) {
-		std::vector<std::vector<std::string>> commands;
-		for(auto& cmd : io::split(raw_input, "|")) {
-			cmd = io::trim(cmd);
-			commands.push_back(parse_arguments(cmd));
-		}
-		return pipe_execute(commands);
-	}
+        std::string command_part = io::trim(parts[0]);
+        rinfo.filepath = io::trim(parts[1]);
+        std::vector<std::string> new_args = parse_arguments(command_part);
 
-	if (raw_input.find(">") != std::string::npos || raw_input.find("2>") != std::string::npos) {
-		std::string trimmed_input = io::trim(raw_input);
+        return execute(new_args, command_part, save_to_his, bg, rinfo);
+    }
 
-		bool is_stdout = trimmed_input.find("2>") == std::string::npos;
-		bool append = trimmed_input.find(">>") != std::string::npos;
+    // Handle multiple commands separated by ";"
+    if (io::split(raw_input, ";").size() > 1) {
+				save_to_history(parse_arguments(raw_input), raw_input);
+        for (auto cmd : io::split(raw_input, ";")) {
+            cmd = io::trim(cmd);
+            int res = exec(parse_arguments(cmd), cmd, false);
+            if (res == EXIT) return EXIT;
+        }
+        return 0;
+    }
 
-		std::string redirect_op = append ? ">>" : (is_stdout ? ">" : "2>");
-		std::vector<std::string> parts = io::split(trimmed_input, redirect_op);
-		if (parts.size() != 2) {
-			info::error("Invalid redirection syntax", 1);
-			return -1;
-		}
+    // Handle "&&"
+    if (io::split(raw_input, "&&").size() > 1) {
+				save_to_history(parse_arguments(raw_input), raw_input);
+        for (auto cmd : io::split(raw_input, "&&")) {
+            cmd = io::trim(cmd);
+            int res = exec(parse_arguments(cmd), cmd, false);
+            if (res == EXIT) return EXIT;
+            if (res != 0) break;
+        }
+        return 0;
+    }
 
-		std::string command_part = io::trim(parts[0]);
-		std::string path_part = io::trim(parts[1]);
+    // Handle "||"
+    if (io::split(raw_input, "||").size() > 1) {
+				save_to_history(parse_arguments(raw_input), raw_input);
+        for (auto cmd : io::split(raw_input, "||")) {
+            cmd = io::trim(cmd);
+            int res = exec(parse_arguments(cmd), cmd, false);
+            if (res == EXIT) return EXIT;
+            if (res == 0) break;
+        }
+        return 0;
+    }
 
-		std::vector<std::string> new_args = parse_arguments(command_part);
+    // Handle pipes
+    if (io::split(raw_input, "|").size() > 1) {
+        std::vector<std::vector<std::string>> commands;
+        for (auto& cmd : io::split(raw_input, "|")) {
+            cmd = io::trim(cmd);
+            commands.push_back(parse_arguments(cmd));
+        }
+        return pipe_execute(commands);
+    }
 
-		return redirect(new_args, command_part, save_to_history, path_part, append, is_stdout);
-	}
-
-	return execute(args, raw_input, save_to_history, bg, devnull);
+    return execute(args, raw_input, save_to_his, bg, rinfo);
 }
 
 
