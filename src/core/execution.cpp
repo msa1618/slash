@@ -360,16 +360,10 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
     }
   }
 
-  if (parsed_args[0] == "cd") {
-    // Avoid executing "cd cd [parsed_args]"
-    cd(parsed_args);
-    return 0;
-  }
-
   if(parsed_args[0] == "var") {
     parsed_args.erase(parsed_args.begin());
     
-    return var(parsed_args);;
+    return var(parsed_args);
   }
 
   if(parsed_args[0] == "jobs") {
@@ -527,6 +521,7 @@ int exec(std::vector<std::string> args, std::string raw_input, bool save_to_his)
     }
 
     if (args[0] == "cd") {
+        args.erase(args.begin());
         return cd(args);
     }
 
