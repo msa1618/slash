@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <filesystem>
 #include <algorithm>
+#include "../help_helper.h"
 
 void list_variables() {
   std::string home = getenv("HOME");
@@ -127,11 +128,22 @@ std::variant<std::string, int> get_value(std::string name) {
 
 int var(std::vector<std::string> args) {
   if(args.empty()) {
-    io::print("var: manipulate and list variables\n"
-              "flags:\n"
-              "-l | --list: list variables\n"
-              "-c | --create: create variable\n"
-              "-g | --get: get value of variable\n");
+    io::print(get_helpmsg({
+      "Manipulate variables",
+      {
+        "var [option]",
+        "var [option] <variable>"
+      },
+      {
+        {"-l", "--list", "List all variables"},
+        {"-c", "--create", "Create a variable"},
+        {"-g", "--get", "Get a variable's value"}
+      },
+      {
+        {"var -c \"work\" ~/personal/dir1/more/longer/work", "Creates variable work"},
+        {"var -g \"work\"", "Get value of work"}
+      }
+    }));
     return 0;
   }
 
@@ -172,7 +184,7 @@ int var(std::vector<std::string> args) {
         }
         return 0;
       } else {
-        io::print("var -g usage: var -g <varname>");
+        info::error("Missing variable name");
         return 0;
       }
     }

@@ -3,6 +3,8 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 
+#include "../help_helper.h"
+
 #include <unistd.h>
 #include <algorithm>
 #include <string>
@@ -184,14 +186,26 @@ void delete_all_aliases() {
 
 int alias(std::vector<std::string> args) {
   if(args.empty()) {
-    io::print("alias: manipulate command aliases\n");
-    io::print("usage: alias [name] [value]\n");
-    io::print("flags:\n");
-    io::print("  -l | --list:       list all aliases\n");
-    io::print("  -d | --delete:     delete an alias\n");
-    io::print("  -D | --delete-all: delete all aliases\n");
-    io::print("  -g | --get:        get an alias's value\n");
-    io::print("  -c | --create:     create new alias\n");
+    io::print(get_helpmsg({
+      "Manipulate aliases, a shortcut to a command",
+      {
+        "alias [option]",
+        "alias [option] <name>"
+      },
+      {
+        {"-l", "--list", "List all aliases"},
+        {"-d", "--delete", "Delete an alias"},
+        {"-D", "--delete-all", "Delete all aliases"},
+        {"-g", "--get", "Get an alias's value"},
+        {"-c", "--create", "Create an alias"}
+      },
+      {
+        {"alias -c \"update\" \"sudo apt update && sudo apt upgrade\"", "Create an alias update to the second argument"},
+        {"alias -g \"update\"", "Get the value of update"},
+      },
+      "",
+      ""
+    }));
     return 0;
   }
 
