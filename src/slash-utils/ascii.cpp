@@ -5,9 +5,9 @@
 #include <ios>
 #include <sstream>
 
-class Ascii : public Command {
+class Ascii {
   public:
-    Ascii() : Command("ascii", "all about the ascii encoding; the table, extended characters..", "") {}
+    Ascii() {}
 
     int exec(std::vector<std::string> args) {
       std::vector<std::pair<std::string, std::string>> ascii_table;

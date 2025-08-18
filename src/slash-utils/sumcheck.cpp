@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <regex>
 
+#include "../help_helper.h"
+
 // Global CRC32 table
 uint32_t crc32_table[256];
 

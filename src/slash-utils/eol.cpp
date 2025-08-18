@@ -1,6 +1,6 @@
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
-#include "help_helper.h"
+#include "../help_helper.h"
 
 
 class Eol {

@@ -104,7 +104,7 @@ Commands:
         {constants, cconsts}
       };
 
-      return highlight(buffer, patterns);
+      return shighlight(buffer, patterns);
     }
     std::string read_input() {
       char input;

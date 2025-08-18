@@ -171,7 +171,7 @@ class Move {
     int exec(std::vector<std::string> args) {
       if(args.empty()) {
         io::print(get_helpmsg({
-          "Moves files from one place to another, with cross-filesystem support"
+          "Moves files from one place to another, with cross-filesystem support",
           {
             "move <file> <new-dir>",
             "move [option]"

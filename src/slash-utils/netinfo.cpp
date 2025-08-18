@@ -8,9 +8,9 @@
 #include <unistd.h>
 #include <pwd.h>
 
-class NetInfo : public Command {
+class NetInfo {
   public:
-  NetInfo() : Command("netinfo", "Shows you information about your network", "") {}
+  NetInfo() {}
 
   std::pair<std::string, std::string> get_ip_and_netmask() {
     std::string ipv4;
@@ -39,18 +39,6 @@ class NetInfo : public Command {
           mask = std::string(netmask);
         }
       }
-
-      if(ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET6) {
-        void* addr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-        void* msk = &((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr;
-        inet_ntop(AF_INET6, addr, ip, sizeof(ip));
-        inet_ntop(AF_INET6, msk, netmask, sizeof(netmask));
-
-        if(std::string(ip) != "::1") {
-          ipv6 = std::string(ip);
-          mask =
-        }
-
     }
 
     return std::pair<std::string, std::string>(ipv4, mask);

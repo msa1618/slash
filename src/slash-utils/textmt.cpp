@@ -5,7 +5,7 @@
 #include "../abstractions/info.h"
 #include "../help_helper.h"
 
-class Textmt : public Command {
+class Textmt {
   private:
   std::string get_chars_num(std::string str) {
     int num = 0;
@@ -95,7 +95,7 @@ class Textmt : public Command {
   }
 
   public:
-  Textmt() : Command("textmt", "shows various metadata for files/text", "") {}
+  Textmt() {}
 
   int exec(std::vector<std::string> args) {
     if (args.empty()) {

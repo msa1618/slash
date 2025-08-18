@@ -225,7 +225,7 @@ private:
                 current_width_available = get_terminal_width();
             }
             io::print(name);
-            current_width_available -= strip_ansi(name).length();
+            current_width_available -= io::strip_ansi(name).length();
         }    
 
         io::print("\n");

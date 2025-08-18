@@ -53,6 +53,8 @@ add_executable(slash
         src/builtin-cmds/var.h
         src/builtin-cmds/alias.cpp
         src/builtin-cmds/alias.h
+        src/cmd_highlighter.h
+        src/cmd_highlighter.cpp
         src/help_helper.cpp
         src/help_helper.h
 )

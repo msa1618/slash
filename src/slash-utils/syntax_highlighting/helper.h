@@ -4,7 +4,7 @@
 #include <string>
 #include <boost/regex.hpp>
 
-std::string highlight(const std::string& input,
+std::string shighlight(const std::string& input,
                       const std::vector<std::pair<boost::regex, std::string>>& patterns) {
   std::string result;
   size_t pos = 0;

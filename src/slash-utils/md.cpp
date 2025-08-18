@@ -1,5 +1,6 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
+#include "../help_helper.h"
 
 #include <vector>
 #include <boost/regex.hpp>
@@ -7,59 +8,19 @@
 #include <csignal>
 #include <thread>
 #include <termios.h>
-
-struct termios orig_tty;
-
-void enable_raw_mode() {
-  tcgetattr(STDIN_FILENO, &orig_tty);  // Save original
-  struct termios tty = orig_tty;
-  tty.c_lflag &= ~ICANON;
-  tty.c_lflag &= ~ECHO;
-  tcsetattr(STDIN_FILENO, TCSANOW, &tty);
-}
-
-void disable_raw_mode() {
-  tcsetattr(STDIN_FILENO, TCSANOW, &orig_tty);  // Restore original
-}
+#include "../tui/tui.h"
 
 class Md {
   private:
-    static void switch_to_alternate() {
-      io::print("\x1b[?1049h");
-      // Hide cursor
-      io::print("\x1b[?25l");
-    }
-
-    static void switch_to_normal() {
-      // Show cursor again
-      io::print("\x1b[?25h");
-      io::print("\x1b[?1049l");
-    }
-
-    static void clear() {
-      io::print("\x1b[2J\x1b[H");
-    }
-
-    int get_terminal_width() {
-      struct winsize w;
-      ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-      return w.ws_col;
-    }
-
-    int get_terminal_height() {
-      struct winsize w;
-      ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-      return w.ws_row;
-    }
 
     void draw_statusbar(int current_line, std::vector<std::string> lines) {
-      io::print("\x1b[" + std::to_string(get_terminal_height()) + ";1H");
+      io::print("\x1b[" + std::to_string(Tui::get_terminal_height()) + ";1H");
       std::stringstream ss;
       ss << bg_green << black << " md " << reset << bg_gray << " q to quit ";
 
 
-      int percent = lines.size() < get_terminal_height() ? 100 : static_cast<int>((static_cast<double>(current_line) / (int)lines.size()) * 100);
-      int width = get_terminal_width();
+      int percent = lines.size() < Tui::get_terminal_height() ? 100 : static_cast<int>((static_cast<double>(current_line) / (int)lines.size()) * 100);
+      int width = Tui::get_terminal_width();
 
       if (lines.size() == 0) {
         int space_length = width - 4 - 8 - 11; // 4 for " md ", 8 for "<empty> "
@@ -77,8 +38,8 @@ class Md {
 
 
     static void sig_handler(int sig) {
-      clear();
-      switch_to_normal();
+      Tui::clear();
+      Tui::switch_to_normal();
       disable_raw_mode();
       _exit(sig);
     }
@@ -97,7 +58,7 @@ class Md {
       signal(SIGINT, sig_handler);
       signal(SIGTERM, sig_handler);
 
-      switch_to_alternate();
+      Tui::switch_to_alternate();
       enable_raw_mode();
 
       const std::string osc8_start = "\x1b]8;;";
@@ -151,7 +112,7 @@ class Md {
 
       // === Prepare separator line ===
       std::string separator;
-      for (int i = 0; i < get_terminal_width(); i++) {
+      for (int i = 0; i < Tui::get_terminal_width(); i++) {
         separator += "─";
       }
 
@@ -193,15 +154,15 @@ class Md {
 
       // === Rendering ===
       int scroll_offset = 0;
-      int height = get_terminal_height();
+      int height = Tui::get_terminal_height();
       std::vector<std::string> lines = io::split(highlighted, "\n");
 
       auto redraw = [&](int sig = 0) {
-        clear();
+        Tui::clear();
         for (int i = scroll_offset; i < std::min(scroll_offset + height, (int)lines.size()); i++) {
           io::print(lines[i] + "\n");
         }
-        draw_statusbar(scroll_offset + get_terminal_height(), lines);
+        draw_statusbar(scroll_offset + Tui::get_terminal_height(), lines);
       };
 
       redraw();
@@ -224,7 +185,7 @@ class Md {
               break;
             }
             case 'B': { // Down
-              if (scroll_offset + get_terminal_height() < (int)lines.size()) {
+              if (scroll_offset + Tui::get_terminal_height() < (int)lines.size()) {
                 scroll_offset++;
                 redraw();
               }
@@ -235,8 +196,8 @@ class Md {
         }
 
         if (key == 'q') {
-          clear();
-          switch_to_normal();
+          Tui::clear();
+          Tui::switch_to_normal();
           disable_raw_mode();
           _exit(0);
         }

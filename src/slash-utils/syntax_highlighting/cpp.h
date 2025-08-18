@@ -3,7 +3,7 @@
 
 #include "../../abstractions/iofuncs.h"
 #include "helper.h"
-#include <regex>
+#include <boost/regex.hpp>
 #include <string>
 #include <vector>
 
@@ -43,15 +43,15 @@ std::string cpp_sh(std::string content) {
         "warning"
     };
 
-    std::regex nums(R"(-?\d+(\.\d+)?)");
-    std::regex keywords("\\b(" + io::join(cpp_keywords, "|") + ")\\b");
-    std::regex quotes(R"("(?:[^"\\]|\\.)*")");
-    std::regex funcs(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\())");
-    std::regex namespaces(R"([A-Za-z0-9_]+(?=::))");
-    std::regex prep_directives("#(" + io::join(preprocessor_directives, "|") + ")");
+    boost::regex nums(R"(-?\d+(\.\d+)?)");
+    boost::regex keywords("\\b(" + io::join(cpp_keywords, "|") + ")\\b");
+    boost::regex quotes(R"("(?:[^"\\]|\\.)*")");
+    boost::regex funcs(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\())");
+    boost::regex namespaces(R"([A-Za-z0-9_]+(?=::))");
+    boost::regex prep_directives("#(" + io::join(preprocessor_directives, "|") + ")");
 
     // Prepare vector of pairs (regex, color)
-    std::vector<std::pair<std::regex, std::string>> patterns = {
+    std::vector<std::pair<boost::regex, std::string>> patterns = {
         {nums, "\x1b[38;2;236;157;237m"},
         {keywords, "\x1b[38;2;39;125;161m"},
         {funcs, "\x1b[38;2;255;159;28m"},
@@ -60,7 +60,7 @@ std::string cpp_sh(std::string content) {
         {quotes, "\x1b[38;2;103;148;54m"}
     };
 
-    return highlight(content, patterns);
+    return shighlight(content, patterns);
 }
 
 #endif // SLASH_CPP_H
