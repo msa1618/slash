@@ -62,17 +62,17 @@ int overwrite_file(std::string path, std::string content) {
 }
 
 std::vector<std::string> split(const std::string& s, std::string delimiter) {
-	std::vector<std::string> tokens;
-	size_t start = 0;
-	size_t end;
+  std::vector<std::string> tokens;
+  size_t start = 0;
+  size_t end;
 
-	while ((end = s.find(delimiter, start)) != std::string::npos) {
-		tokens.push_back(s.substr(start, end - start));
-		start = end + delimiter.length();
-	}
-	tokens.push_back(s.substr(start));
+  while ((end = s.find(delimiter, start)) != std::string::npos) {
+    tokens.push_back(s.substr(start, end - start));
+    start = end + delimiter.length();
+  }
+  tokens.push_back(s.substr(start));
 
-	return tokens;
+  return tokens;
 }
 
 //////////////
@@ -96,7 +96,7 @@ int execute(std::string command) {
     execvp(argv[0], argv.data());
   } else {
     int status = 0;
-		waitpid(pid, &status, 0);
+    waitpid(pid, &status, 0);
     if(WIFEXITED(status)) return WEXITSTATUS(status);
   }
 }
@@ -202,7 +202,7 @@ int install() {
   print("2. The repository structure is unmodified\n");
   print("3. You are running as sudo (to move the slash binary to /usr/local/bin)\n");
   print("3. You have the following dependencies installed:\n");
-  print(cyan + " cmake  g++ | libgit2  boost-regex  ftxui  openssl nlohmann::json" + reset + "\n");
+  print(cyan + " cmake  g++ | libgit2  boost-regex  openssl nlohmann::json" + reset + "\n");
   print("If you are curious:\n - cmake and g++ are used for building and compilation\n - libgit2 is for git support in the prompt, and also for read and ls\n - boost-regex is used for syntax highlighting\n - ftxui is used to make TUI apps like pager\n - openssl is simply used to calculate SHA-256 and MD5 in the sumcheck command\n");
   print("Do you meet all the following conditions? (Y/N): ");
 
@@ -281,32 +281,37 @@ int install() {
     if (create_file("/tmp/slash-utils", true) != 0) return 1;
   
     std::vector<std::string> commands = {
-        "g++ -std=c++20 ansi.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/ansi",
-        "g++ -std=c++20 cmsh.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/cmsh -lboost_regex",
-        "g++ -std=c++20 datetime.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/datetime",
-        "g++ -std=c++20 dump.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/dump",
-        "g++ -std=c++20 eol.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/eol",
-        "g++ -std=c++20 listen.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/listen",
-        "g++ -std=c++20 move.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/move",
-        "g++ -std=c++20 perms.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/perms",
-        "g++ -std=c++20 read.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp ../git/git.cpp -o $HOME/.slash/slash-utils/read -lgit2 -lboost_regex",
-        "g++ -std=c++20 ascii.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/ascii",
-        "g++ -std=c++20 create.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/create",
-        "g++ -std=c++20 del.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/del",
-        "g++ -std=c++20 echo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/echo",
-        "g++ -std=c++20 fnd.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/fnd",
-        "g++ -std=c++20 ls.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp ../git/git.cpp -o $HOME/.slash/slash-utils/ls -lgit2",
-        "g++ -std=c++20 clear.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/clear",
-        "g++ -std=c++20 csv.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/csv",
-        "g++ -std=c++20 disku.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/disku",
-        "g++ -std=c++20 encode.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/encode",
-        "g++ -std=c++20 mkdir.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/mkdir",
-        "g++ -std=c++20 pager.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/pager -lftxui-component -lftxui-dom -lftxui-screen -pthread",
-        "g++ -std=c++20 sumcheck.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/sumcheck -lssl -lcrypto",
-        "g++ -std=c++20 textmt.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/textmt",
-        "g++ -std=c++20 netinfo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/netinfo",
-        "g++ -std=c++20 ren.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../command.cpp -o $HOME/.slash/slash-utils/ren"
-    };
+      "g++ -std=c++20 acart.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/acart -lboost_regex",
+      "g++ -std=c++20 ansi.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/ansi -lboost_regex",
+      "g++ -std=c++20 cmsh.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/cmsh -lboost_regex",
+      "g++ -std=c++20 datetime.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/datetime -lboost_regex",
+      "g++ -std=c++20 dump.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/dump -lboost_regex",
+      "g++ -std=c++20 eol.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/eol -lboost_regex",
+      "g++ -std=c++20 listen.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/listen -lboost_regex",
+      "g++ -std=c++20 move.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/move -lboost_regex",
+      "g++ -std=c++20 perms.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/perms -lboost_regex",
+      "g++ -std=c++20 read.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../git/git.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/read -lgit2 -lboost_regex",
+      "g++ -std=c++20 ascii.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/ascii -lboost_regex",
+      "g++ -std=c++20 create.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/create -lboost_regex",
+      "g++ -std=c++20 del.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/del -lboost_regex",
+      "g++ -std=c++20 echo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/echo -lboost_regex",
+      "g++ -std=c++20 fnd.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/fnd -lboost_regex",
+      "g++ -std=c++20 ls.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../git/git.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/ls -lgit2 -lboost_regex",
+      "g++ -std=c++20 clear.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/clear -lboost_regex",
+      "g++ -std=c++20 csv.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/csv -lboost_regex",
+      "g++ -std=c++20 disku.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/disku -lboost_regex",
+      "g++ -std=c++20 encode.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/encode -lboost_regex",
+      "g++ -std=c++20 mkdir.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/mkdir -lboost_regex",
+      "g++ -std=c++20 pager.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/pager -lboost_regex",
+      "g++ -std=c++20 sumcheck.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/sumcheck -lssl -lcrypto -lboost_regex",
+      "g++ -std=c++20 textmt.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/textmt -lboost_regex",
+      "g++ -std=c++20 netinfo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/netinfo -lboost_regex",
+      "g++ -std=c++20 ren.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/ren -lboost_regex",
+      "g++ -std=c++20 lynx.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/lynx -lgit2 -lboost_regex",
+      "g++ -std=c++20 mkf.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/mkf -lboost_regex",
+      "g++ -std=c++20 srch.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/srch -lboost_regex",
+      "g++ -std=c++20 md.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o $HOME/.slash/slash-utils/md -lboost_regex"
+  };
 
 
   for(int i = 0; i < commands.size(); i++) {

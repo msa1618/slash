@@ -1,5 +1,5 @@
-#ifndef AMBER_DEFINITIONS_H
-#define AMBER_DEFINITIONS_H
+#ifndef SLASH_DEFINITIONS_H
+#define SLASH_DEFINITIONS_H
 
 #define STDOUT STDOUT_FILENO
 #define STDERR STDERR_FILENO
@@ -13,6 +13,7 @@
 const std::string reset     = "\x1b[0m";
 const std::string bold      = "\x1b[1m";
 const std::string underline = "\x1b[4m";
+const std::string strikethr = "\x1b[9m";
 
 const std::string black     = "\x1b[30m";
 const std::string red       = "\x1b[31m";
@@ -47,4 +48,4 @@ const std::string slash_dir = home + "/.slash";
 
 
 
-#endif //AMBER_DEFINITIONS_H
+#endif //SLASH_DEFINITIONS_H

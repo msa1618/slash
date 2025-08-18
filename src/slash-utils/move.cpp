@@ -1,14 +1,15 @@
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
-#include "../command.h"
+
 
 #include <filesystem>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include "../help_helper.h"
 
-class Move : public Command {
+class Move {
   private:
     int clear_history() {
       const char* home_c = getenv("HOME");
@@ -165,15 +166,27 @@ class Move : public Command {
   }
 
   public:
-    Move() : Command("move", "", "") {}
+    Move() {}
 
     int exec(std::vector<std::string> args) {
       if(args.empty()) {
-        io::print("move: move file or directory from one directory to another\n"
-                  "usage: move <filepath> <destination-dir>\n"
-                  "flags:\n"
-                  "-u | --undo (n): undo the last nth move\n"
-                  "--clear-history: clear the moving history used for undoing\n");
+        io::print(get_helpmsg({
+          "Moves files from one place to another, with cross-filesystem support"
+          {
+            "move <file> <new-dir>",
+            "move [option]"
+          },
+          {
+            {"-u", "--undo [n]", "Undo the last [n] change. If (n) is not specified, undo last change"},
+            {"", "--clear-history", "Clear move logs"}
+          },
+          {
+            {"move main.cpp ../", "Move main.cpp to the parent directory"},
+            {"move -u", "Undo the last move"}
+          },
+          "",
+          ""
+        }));
         return 0;
       }
 

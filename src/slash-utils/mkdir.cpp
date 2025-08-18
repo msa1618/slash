@@ -2,19 +2,19 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "../command.h"
+
 #include "../abstractions/iofuncs.h"
 
 #include <vector>
 #include <string>
 
-class Mkdir : public Command {
+class Mkdir {
     public:
-        Mkdir() : Command("mkdir", "Creates a new directory", "") {}
+        Mkdir() {}
 
         int exec(std::vector<std::string> args) {
             if(args.empty()) {
-                io::print("mkdir: create a new directory");
+                io::print(green + "Function" + "\n  Create a directory");
                 return 0;
             }
             std::string name = args[0];
@@ -33,13 +33,13 @@ class Mkdir : public Command {
 };
 
 int main(int argc, char* argv[]) {
-	Mkdir mkdir;
+  Mkdir mkdir;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
+  }
 
-	mkdir.exec(args);
-	return 0;
+  mkdir.exec(args);
+  return 0;
 }

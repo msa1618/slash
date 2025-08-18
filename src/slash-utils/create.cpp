@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "../command.h"
+
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 
@@ -9,8 +9,9 @@
 #include <string>
 #include <filesystem>
 #include <sys/stat.h>
+#include "../help_helper.h"
 
-class Create : public Command {
+class Create {
 private:
     bool contains_invalid_chars(std::string name) {
         return name.starts_with("/") || name.starts_with("\0");
@@ -111,19 +112,29 @@ private:
     }
 
 public:
-    Create() : Command("create", "Creates a new file", "") {}
+    Create() {}
 
     int exec(std::vector<std::string> args) {
         if (args.empty()) {
-            io::print(
-                "create: create a new file, link, or named pipe (fifo)\n"
-                "usage: create [type] <name> [target]\n"
-                "flags:\n"
-                "-f | --file:          create a file (default)\n"
-                "-s | --symbolic-link: create a symbolic link\n"
-                "-h | --hard-link:     create a hard link\n"
-                "-p | --fifo:          create a named pipe (fifo)\n"
-            );
+            io::print(get_helpmsg({
+                "Creates new files, symbolic & hard links, and named pipes (FIFOs)",
+                {
+                    "create [option] <name>"
+                },
+                {
+                    {"-f", "--file", "Creates a file (default)"},
+                    {"-s", "--symbolic-link", "Creates symbolic link"},
+                    {"-h", "--hard-link", "Creates hard link"},
+                    {"-p", "--fifo", "Creates a named pipe (FIFO)"}
+                },
+                {
+                    {"create list.txt"},
+                    {"create -s proj ~/proj/Slash"},
+                    {"create -p pipe"}
+                },
+                "",
+                ""
+            }));
             return 0;
         }
 

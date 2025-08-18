@@ -26,6 +26,11 @@ namespace Tui {
     void scroll_up();
     void scroll_down();
 
+    void turn_linewrap(bool b);
+
+    void print_in_center_of_terminal(std::string text);
+    void print_separator();
+
     int get_terminal_width();
     int get_terminal_height();
 

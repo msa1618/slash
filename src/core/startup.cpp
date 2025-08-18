@@ -6,6 +6,7 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 #include "execution.h"
+#include "parser.h"
 
 void enable_canonical_mode() {
     struct termios t;
@@ -22,7 +23,7 @@ void enable_canonical_mode() {
 }
 
 void enable_raw_mode() {
-		struct termios orig;
+    struct termios orig;
 
     // Get current terminal attributes and save to orig
     if (tcgetattr(STDIN_FILENO, &orig) == -1) {
@@ -32,8 +33,8 @@ void enable_raw_mode() {
 
     termios raw = orig;
 
-    // Input flags - disable canonical mode, disable Ctrl-S/Q and other input processing
-    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    // Input flags - disable canonical mode, and other input processing
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP);
 
     // Control flags - set 8-bit chars
     raw.c_cflag |= (CS8);
@@ -55,43 +56,44 @@ void enable_raw_mode() {
 ///////////////////////////////////////////////////////
 
 std::string interpret_escapes(const std::string& input) {
-	std::string result;
-	for (size_t i = 0; i < input.size(); ++i) {
-		if (input[i] == '\\' && i + 1 < input.size()) {
-			char next = input[i + 1];
-			if (next == 'n') {
-				result += '\n';
-				++i;
-			} else if (next == 'x' && i + 3 < input.size()) {
-				std::string hex_str = input.substr(i + 2, 2);
-				char ch = (char)std::stoi(hex_str, nullptr, 16);
-				result += ch;
-				i += 3;
-			} else {
-				result += next;
-				++i;
-			}
-		} else {
-			result += input[i];
-		}
-	}
-	return result;
+  std::string result;
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (input[i] == '\\' && i + 1 < input.size()) {
+      char next = input[i + 1];
+      if (next == 'n') {
+        result += '\n';
+        ++i;
+      } else if (next == 'x' && i + 3 < input.size()) {
+        std::string hex_str = input.substr(i + 2, 2);
+        char ch = (char)std::stoi(hex_str, nullptr, 16);
+        result += ch;
+        i += 3;
+      } else {
+        result += next;
+        ++i;
+      }
+    } else {
+      result += input[i];
+    }
+  }
+  return result;
 }
 
 void execute_startup_commands() {
-	auto startup_commands = io::read_file(slash_dir + "/.slash_startup_commands");
+  auto startup_commands = io::read_file(slash_dir + "/.slash_startup_commands");
 
-	if(std::holds_alternative<int>(startup_commands)) {
-		info::error(strerror(errno), errno, ".slash_startup_commands");
-		return;
-	}
+  if(std::holds_alternative<int>(startup_commands)) {
+    info::error(strerror(errno), errno, ".slash_startup_commands");
+    return;
+  }
 
-	std::vector<std::string> lines = io::split(std::get<std::string>(startup_commands), "\n");
-	for(auto& command : lines) {
-		command = interpret_escapes(command);
-		if(command.empty()) continue;
-		std::vector<std::string> tokens = io::split(command, " ");
-		execute(tokens, io::join(tokens, " "), false, false, false);
-	}
+  std::vector<std::string> lines = io::split(std::get<std::string>(startup_commands), "\n");
+  for(auto& command : lines) {
+    command = interpret_escapes(command);
+
+    if(command.empty()) continue;
+    std::vector<std::string> tokens = parse_arguments(command);
+    exec(tokens, command, false);
+  }
 }
 

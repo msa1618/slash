@@ -1,8 +1,9 @@
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
-#include "../command.h"
+#include "help_helper.h"
 
-class Eol : public Command {
+
+class Eol {
   private:
     int change_eol(std::string filepath, std::string eol) {
       auto content = io::read_file(filepath);
@@ -59,24 +60,31 @@ class Eol : public Command {
     }
 
     public:
-      Eol() : Command("", "", "") {}
+      Eol() {}
 
       int exec(std::vector<std::string> args) {
         if(args.empty()) {
-          io::print(R"(eol: manipulate file end-of-lines (eols)
-usage: eol <filepath>: shows the occurences of different eols
-       eol [flag] <filepath>: convert to an eol
-       
-flags:
-  -u | --unix:    converts file eols to LF
-  -w | --windows: converts file eols to CRLF
-  -m | --mac:     converts file eols to CR
-)");
+          io::print(get_helpmsg({
+            "Print and manipulate end-of-lines of a file",
+            {
+              "eol <file>",
+              "eol [option] <file>"
+            },
+            {
+              {"-u", "--unix", "Converts EOL to LF"},
+              {"-w", "--windows", "Converts EOL to CRLF"},
+              {"-m", "--macintosh", "Converts EOL to CR, used in old Macs"},
+            },
+            {
+              {"eol main.cpp", "Prints the occurences of the 3 main EOLs of main.cpp"},
+              {"eol -w main.cpp", "Change the EOL of main.cpp to Windows (CRLF)"},
+            }
+          }));
             return 0;
         }
 
         std::vector<std::string> valid_args = {
-          "-u", "-w", "-m",
+          "-u", "-w", "-m"
           "--unix", "--windows", "--mac"
         };
 
@@ -109,12 +117,12 @@ flags:
 };
 
 int main(int argc, char* argv[]) {
-	Eol eol;
+  Eol eol;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
+  }
 
   return eol.exec(args);
 }

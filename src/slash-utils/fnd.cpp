@@ -9,23 +9,25 @@
 
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
-#include "../command.h"
 
-class Fnd : public Command {
-	private:
-		std::string get_owner_name(int owner_id) {
-			struct passwd* pw = getpwuid(owner_id);
-			if(pw) return pw->pw_name;
-			return "UNKNOWN";
-		}
+#include "../help_helper.h"
 
-		std::string get_group_name(int group_id) {
-			struct group* g = getgrgid(group_id);
-			if(g) return g->gr_name;
-			return "UNKNOWN";
-		}
 
-	int find(std::string inode_id, std::string dir, std::string name, std::string extension, std::string type, std::string owner, std::string group, std::string target) {
+class Fnd {
+  private:
+    std::string get_owner_name(int owner_id) {
+      struct passwd* pw = getpwuid(owner_id);
+      if(pw) return pw->pw_name;
+      return "UNKNOWN";
+    }
+
+    std::string get_group_name(int group_id) {
+      struct group* g = getgrgid(group_id);
+      if(g) return g->gr_name;
+      return "UNKNOWN";
+    }
+
+  int find(std::string inode_id, std::string dir, std::string name, std::string extension, std::string type, std::string owner, std::string group, std::string target) {
     std::string cwd;
     if (dir.empty()) {
         char buffer[512];
@@ -87,7 +89,7 @@ class Fnd : public Command {
             return {buffer};
         }();
 
-				if(!extension.starts_with(".")) extension.insert(extension.begin(), '.');
+        if(!extension.starts_with(".")) extension.insert(extension.begin(), '.');
 
         // ---- FILTER CHECK ----
         bool matches = true;
@@ -136,109 +138,119 @@ class Fnd : public Command {
     }
     closedir(d);
     return 0;
-	}
+  }
 
 
 
-	public:
-		Fnd() : Command("fnd", "", "") {}
+  public:
+    Fnd() {}
 
-		int exec(std::vector<std::string> args) {
-			if(args.empty()) {
-				io::print("fnd: find a file based on its name, extension, type, owner, group, inode id, etc.\n"
-									"usage: fnd <directory> [flags]\n"
-									"flags:\n"
-									"-n | --name: specify the name\n"
-									"-e | --ext: specify the extension\n"
-									"-t | --type: specify the type\n"
-									"-o | --owner: specify owner\n"
-									"-g | --group: specify group\n"
-									"-i | --inode-id: specify inode id\n"
-									"--target: specify target (if symlink)\n");
-				return 0;
-			}
+    int exec(std::vector<std::string> args) {
+      if(args.empty()) {
+        io::print(get_helpmsg({
+          "Find files based on their name, extension, type, owner, group, inode ID, or for links, target.",
+          {
+            "fnd [options]"
+          },
+          {
+            {"-n", "--name", "Specify the name"},
+            {"-e", "--ext", "Specify the extension"},
+            {"-t", "--type", "Specify the type"},
+            {"-o", "--owner", "Specify the owner"},
+            {"-g", "--group", "Specify the group"},
+            {"-i", "--inode-id", "Specifies the inode id"},
+            {"", "--target", "Specify the target (only if type is link)"}
+          },
+          {
+            {"fnd / -n \"lost.cpp\" -e \"file\" -o \"me\"", "Find a file with owner \"me\" called lost.cpp in the entire system"}
+          },
+          "",
+          ""
+        }));
+        return 0;
+      }
 
-			std::vector<std::string> valid_args = { 
-				"-n", "--name",
-				"-e", "--ext",
-				"-t", "--type",
-				"-o", "--owner",
-				"-g", "--group",
-				"-i", "--inode-id",
-				"--target"
-			};
+      std::vector<std::string> valid_args = { 
+        "-n", "--name",
+        "-e", "--ext",
+        "-t", "--type",
+        "-o", "--owner",
+        "-g", "--group",
+        "-i", "--inode-id",
+        "--target"
+      };
 
-			std::string name, dir, extension, type, owner, group, inode_id, target;
+      std::string name, dir, extension, type, owner, group, inode_id, target;
 
-			for(int i = 0; i < args.size(); i++) {
-				if(!io::vecContains(valid_args, args[i]) && args[i].starts_with("-")) {
-					info::error("Invalid argument \"" + args[i] + "\"\n");
-					return EINVAL;
-				}
+      for(int i = 0; i < args.size(); i++) {
+        if(!io::vecContains(valid_args, args[i]) && args[i].starts_with("-")) {
+          info::error("Invalid argument \"" + args[i] + "\"\n");
+          return EINVAL;
+        }
 
-				if(!args[i].starts_with("-")) {
-					dir = args[i];
-				}
+        if(!args[i].starts_with("-")) {
+          dir = args[i];
+        }
 
-				if(args[i] == "-n" || args[i] == "--name") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing name.");
-						return EINVAL;
-					}
-					name = args[++i];
-				} else if(args[i] == "-e" || args[i] == "--ext") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing extension.");
-						return EINVAL;
-					}
-					extension = args[++i];
-				} else if(args[i] == "-t" || args[i] == "--type") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing type.");
-						return -1;
-					}
-					type = args[++i];
-				} else if(args[i] == "-o" || args[i] == "--owner") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing owner.");
-						return -1;
-					}
-					owner = args[++i];
-				} else if(args[i] == "-g" || args[i] == "--group") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing group.");
-						return -1;
-					}
-					group = args[++i];
-				} else if(args[i] == "-i" || args[i] == "--inode-id") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing inode ID.");
-						return -1;
-					}
-					inode_id = args[++i];
-				} else if(args[i] == "--target") {
-					if(i + 1 >= args.size()) {
-						info::error("Missing target.");
-						return -1;
-					}
-					target = args[++i];
-				} else if(!args[i].starts_with("-")) {
-					dir = args[i];
-				}
-			}
+        if(args[i] == "-n" || args[i] == "--name") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing name.");
+            return EINVAL;
+          }
+          name = args[++i];
+        } else if(args[i] == "-e" || args[i] == "--ext") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing extension.");
+            return EINVAL;
+          }
+          extension = args[++i];
+        } else if(args[i] == "-t" || args[i] == "--type") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing type.");
+            return -1;
+          }
+          type = args[++i];
+        } else if(args[i] == "-o" || args[i] == "--owner") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing owner.");
+            return -1;
+          }
+          owner = args[++i];
+        } else if(args[i] == "-g" || args[i] == "--group") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing group.");
+            return -1;
+          }
+          group = args[++i];
+        } else if(args[i] == "-i" || args[i] == "--inode-id") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing inode ID.");
+            return -1;
+          }
+          inode_id = args[++i];
+        } else if(args[i] == "--target") {
+          if(i + 1 >= args.size()) {
+            info::error("Missing target.");
+            return -1;
+          }
+          target = args[++i];
+        } else if(!args[i].starts_with("-")) {
+          dir = args[i];
+        }
+      }
 
-			return find(inode_id, dir, name, extension, type, owner, group, target);
-		}
+      return find(inode_id, dir, name, extension, type, owner, group, target);
+    }
 };
 
 int main(int argc, char* argv[]) {
-	Fnd fnd;
+  Fnd fnd;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
+  }
 
-	fnd.exec(args);
-	return 0;
+  fnd.exec(args);
+  return 0;
 }

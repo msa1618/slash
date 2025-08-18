@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 #include <sstream>
+#include "../help_helper.h"
 
 struct FigletFont {
   std::vector<std::string> lines;
@@ -54,13 +55,20 @@ class Acart {
 
     int exec(std::vector<std::string> args) {
       if (args.empty()) {
-        io::print(R"(acart: generate ascii art
-usage: acart <text>                 use default font
-       acart -f <filepath> <text>   get characters from a FIGlet font
-
-flags:
-  -f | --file: next argument is a file
-)");
+        io::print(get_helpmsg({
+          "Prints ASCII art using a FIGlet font",
+          {
+            "acart -f <filename> \"Hello World!\""
+          },
+          {
+            {"-f", "--file", "The next argument is a file"}
+          },
+          {
+            {"acart -f banner.flf \"slash\""}
+          },
+          "",
+          "You can get many FIGlet fonts from " + blue + osc_link("figlet.org/fontdb.cgi", "figlet.org/fontdb.cgi") + reset
+        }));
         return 0;
       }
 

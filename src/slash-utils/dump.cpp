@@ -3,9 +3,9 @@
 #include <iomanip>
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
-#include "../command.h"
+#include "../help_helper.h"
 
-class Dump : public Command {
+class Dump {
   private:
     enum Types {
       Hex,
@@ -66,24 +66,35 @@ class Dump : public Command {
     }
 
     public:
-      Dump() : Command("dump", "", "") {}
+      Dump() {}
 
       int exec(std::vector<std::string> args) {
         if(args.empty()) {
-          io::print(R"(dump: dump a file or text in either hex, octal, or decimal
-usage: hex <filename> 
-
-flags:
-  -o | --octal:   dump in octal
-  -d | --decimal: dump in decimal
-  -t | --text:    input is text
-)");
+          io::print(get_helpmsg({
+            "Dump text or a file in either hexadecimal, octal, decimal\n  or binary",
+            {
+              "dump <file>"
+              "dump [option] <file-or-text>"
+            },
+            {
+              {"-o", "--octal", "Dump in octal"},
+              {"-d", "--decimal", "Dump in decimal"},
+              {"-b", "--binary", "Dump in binary"},
+              {"-t", "--text", "The next argument is text (used for piping)"}
+            },
+            {
+              {"dump data.bin", "Show a hexdump of data.bin"},
+              {"dump -o main.cpp", "Show an octdump of main.cpp"}
+            },
+            "",
+            ""
+          }));
             return 0;
         }
 
         std::vector<std::string> valid_args = {
-          "-t", "-o", "-d",
-          "--text", "--octal", "--decimal"
+          "-t", "-o", "-d", "-b",
+          "--text", "--octal", "--decimal", "--binary"
         };
 
         bool is_file = true;
@@ -114,13 +125,13 @@ flags:
 };
 
 int main(int argc, char* argv[]) {
-	Dump dump;
+  Dump dump;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
+  }
 
-	dump.exec(args);
-	return 0;
+  dump.exec(args);
+  return 0;
 }

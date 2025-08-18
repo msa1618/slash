@@ -249,17 +249,21 @@ class Md {
 
     int exec(std::vector<std::string> args) {
       if (args.empty()) {
-        io::print(R"(md: renders markdown in a pretty format
-usage: markdown <file>
-       markdown -t "text"
-       cmd | markdown -t
-       
-flags:
-  -t | --text: incoming input is text, useful for highlighting
-  
-note: some terminals might not support some formatting options, like bold or underline,
-      so some text might appear unhighlighted.
-)");
+        io::print(get_helpmsg({
+          "Renders markdown in a pretty format",
+          {
+            "md <file>",
+            "md -t <text>",
+          },
+          {
+            {"-t", "--text", "The next argument is text (good for piping)"}
+          },
+          {
+            {"md README.md", "Render README.md"}
+          },
+          "",
+          ""
+        }));
         return 0;
       }
 

@@ -21,17 +21,17 @@ void disable_raw_mode() {
 }
 
 void enable_raw_mode() {
-	tcgetattr(STDIN_FILENO, &orig_termios);
-	atexit(disable_raw_mode);
+  tcgetattr(STDIN_FILENO, &orig_termios);
+  atexit(disable_raw_mode);
 
-	termios raw = orig_termios;
-	raw.c_lflag &= ~(ECHO | ICANON);
-	raw.c_lflag &= ~ICRNL;
-	raw.c_lflag &= ~(OPOST);
-	raw.c_cc[VMIN] = 1;
-	raw.c_cc[VTIME] = 0;
+  termios raw = orig_termios;
+  raw.c_lflag &= ~(ECHO | ICANON);
+  raw.c_lflag &= ~ICRNL;
+  raw.c_lflag &= ~(OPOST);
+  raw.c_cc[VMIN] = 1;
+  raw.c_cc[VTIME] = 0;
 
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
 class Cmsh {
@@ -145,7 +145,7 @@ Commands:
         if(input == 27) {
           char seq[2];
           if(read(STDIN_FILENO, &seq[0], 1) != 1) continue;
-			    if(read(STDIN_FILENO, &seq[1], 1) != 1) continue;
+          if(read(STDIN_FILENO, &seq[1], 1) != 1) continue;
 
           switch(seq[1]) {
             case 'A': {
@@ -401,13 +401,13 @@ Commands:
 };
 
 int main(int argc, char* argv[]) {
-	Cmsh cmsh;
+  Cmsh cmsh;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
+  }
 
-	cmsh.exec(args);
-	return 0;
+  cmsh.exec(args);
+  return 0;
 }

@@ -1,14 +1,15 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
-#include "../command.h"
+
 
 #include <vector>
 #include <string>
 #include <regex>
+#include "../help_helper.h"
 
-class Csv : public Command {
-	private:
-	
+class Csv {
+  private:
+  
 std::string strip_ansi(const std::string& str) {
     static const std::regex ansi_regex("\x1B\\[[0-9;]*[mK]");
     return std::regex_replace(str, ansi_regex, "");
@@ -79,78 +80,90 @@ std::string print_csv_table(std::string csv, std::string separator) {
 }
 
 
-	public:
-		Csv() : Command("csv", "", "") {}
+  public:
+    Csv() {}
 
-		int exec(std::vector<std::string> args) {
-			if (args.empty()) {
-				io::print("csv: print raw csv in a pretty format\n"
-									"flags:\n"
-									"-s | --separator: specify the srator\n"
-									"-t | --text     : use text as input\n");
-				return 0;
-			}
+    int exec(std::vector<std::string> args) {
+      if (args.empty()) {
+        io::print(get_helpmsg({
+          "Renders CSV tables in a pretty format",
+          {
+            "csv <file>",
+            "csv [option] <file-or-text>"
+          },
+          {
+            {"-s", "--separator", "Specifies the separator " + yellow + "(NOTE: Use \\| and \\; for these two delimiters)" + reset},
+            {"-t", "--text", "The next argument is text (useful for piping)"}
+          },
+          {
+            {"csv table.csv", "Prints table for table.csv data"},
+            {"csv -s ; table.csv", "Prints table, knowing the separator is ;"}
+          },
+          "",
+          ""
+        }));
+        return 0;
+      }
 
-			std::vector<std::string> valid_args = {
-				"-s", "-t",
-				"--separator", "--text"
-			};
+      std::vector<std::string> valid_args = {
+        "-s", "-t",
+        "--separator", "--text"
+      };
 
-			bool is_text = false;
-			std::string separator = ",";
-			std::string arg;
+      bool is_text = false;
+std::string separator = ",";
+std::string arg;
 
-			for (int i = 0; i < args.size(); i++) {
-				if (!io::vecContains(valid_args, args[i]) && args[i].starts_with("-")) {
-					info::error("Invalid argument \"" + args[i] + "\"\n");
-					return EINVAL;
-				}
+for (size_t i = 0; i < args.size(); ++i) {
+    const std::string& current = args[i];
 
-				if (args[i] == "-s" || args[i] == "--separator") {
-					if(i + 1 > args.size()) {
-						info::error("Expected separator.");
-						return EINVAL;
-					}
-					separator = args[++i];
-				}
+    // Invalid unknown options
+    if (current.starts_with("-") &&
+        current != "-s" && current != "--separator" &&
+        current != "-t" && current != "--text") {
+        info::error("Invalid argument \"" + current + "\"\n");
+        return EINVAL;
+    }
 
-				if (args[i] == "-t" || args[i] == "--text") {
-					if(i + 1 > args.size()) {
-						info::error("Expected text.");
-						return EINVAL;
-					}
-					arg = args[++i];
-					is_text = true;
-				}
+    // Separator option
+    if (current == "-s" || current == "--separator") {
+        if (i + 1 >= args.size()) {
+            info::error("Expected separator after " + current);
+            return EINVAL;
+        }
+        separator = args[++i]; // use the next argument
+        if (separator == "\\|") separator = "|";
+        else if (separator == "\\;") separator = ";";
+        continue;
+    }
 
-				if (!args[i].starts_with("-") && !is_text && arg.empty()) {
-					arg = args[i];
-				}
-			}
+    // Text option
+    if (current == "-t" || current == "--text") {
+        if (i + 1 >= args.size()) {
+            info::error("Expected text after " + current);
+            return EINVAL;
+        }
+        arg = args[++i]; // grab the actual text
+        is_text = true;
+        continue;
+    }
 
-			if (is_text) {
-				print_csv_table(arg, separator);
-				return 0;
-			} else {
-				auto content = io::read_file(arg);
-				if (!std::holds_alternative<std::string>(content)) {
-					std::string error = std::string("Failed to open \"" + arg + "\":") + strerror(errno);
-					info::error(error, errno);
-					return EINVAL;
-				}
-				print_csv_table(std::get<std::string>(content), separator);
-			}
-		}
+    // Positional argument (filename)
+    if (!current.starts_with("-") && arg.empty()) {
+        arg = current;
+    }
+}
+}
 };
 
-	int main(int argc, char* argv[]) {
-		Csv csv;
+  int main(int argc, char* argv[]) {
+    Csv csv;
 
-		std::vector<std::string> args;
-		for (int i = 1; i < argc; ++i) {
-			args.emplace_back(argv[i]);
-		}
+    std::vector<std::string> args;
+    for (int i = 1; i < argc; ++i) {
+      args.emplace_back(argv[i]);
+    }
 
-		csv.exec(args);
-		return 0;
-	}
+    csv.exec(args);
+    return 0;
+  }

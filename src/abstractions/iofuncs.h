@@ -10,39 +10,40 @@
 #include <variant>
 
 namespace io {
-	void print(std::string text);
-	void print_err(std::string text);
-	void print_right(std::string text);
+  void print(std::string text);
+  void print_err(std::string text);
+  void print_right(std::string text);
 
-	std::string join(std::vector<std::string> vec, std::string joiner);
-	std::vector<std::string> split(const std::string &s, std::string delimiter);
-	void replace_all(std::string& str, const std::string& from, const std::string& to);
-	std::string center(std::string text, int width);
+  std::string join(std::vector<std::string> vec, std::string joiner);
+  std::vector<std::string> split(const std::string &s, std::string delimiter);
+  void replace_all(std::string& str, const std::string& from, const std::string& to);
+  std::string center(std::string text, int width);
 
-	std::string trim(const std::string& str);
+  std::string trim(const std::string& str);
+  std::string strip_ansi(const std::string& input);
 
-	std::variant<std::string, int> read_file(std::string filepath);
-	int write_to_file(std::string filepath, std::string content);
-	int overwrite_file(std::string filepath, std::string content);
-	int create_file(std::string filepath);
+  std::variant<std::string, int> read_file(std::string filepath);
+  int write_to_file(std::string filepath, std::string content);
+  int overwrite_file(std::string filepath, std::string content);
+  int create_file(std::string filepath);
 
-	template <typename T, typename U>
-	bool vecContains(std::vector<T> vec, U target) { // For string vectors and string literals, which are interpreted as const char*
-		for(auto& elm : vec) {
-		if(elm == target) return true;
-		}
+  template <typename T, typename U>
+  bool vecContains(std::vector<T> vec, U target) { // For string vectors and string literals, which are interpreted as const char*
+    for(auto& elm : vec) {
+    if(elm == target) return true;
+    }
 
-		return false;
-	};
+    return false;
+  };
 
-	template <typename T>
-	bool vecContains(std::vector<T> vec, T target) {
-		for(auto& elm : vec) {
-			if(elm == target) return true;
-		}
+  template <typename T>
+  bool vecContains(std::vector<T> vec, T target) {
+    for(auto& elm : vec) {
+      if(elm == target) return true;
+    }
 
-		return false;
-	};
+    return false;
+  };
 }
 
 #endif //SLASH_IOFUNCS_H

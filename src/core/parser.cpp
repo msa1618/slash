@@ -3,7 +3,7 @@
 #include "../abstractions/iofuncs.h"
 #include "../builtin-cmds/var.h"
 #include "../builtin-cmds/alias.h"
-#include <regex>
+#include <boost/regex.hpp>
 
 std::string unescape(const std::string& input) {
     std::string result;
@@ -21,7 +21,7 @@ std::string unescape(const std::string& input) {
                 case 'v': result.push_back('\v'); break;
                 case '\\': result.push_back('\\'); break;
                 case '\'': result.push_back('\''); break;
-                case '"': result.push_back('\"'); break;
+                case '"': result.push_back('"'); break;
                 default:
                     result.push_back('\\');
                     result.push_back(next);
@@ -64,12 +64,12 @@ std::string remove_comments_outside_quotes(const std::string& input) {
     bool in_single_quote = false;
     bool in_double_quote = false;
 
-		bool color_quote_mode = false;
+    bool color_quote_mode = false;
 
     for (size_t i = 0; i < input.size(); ++i) {
         char c = input[i];
-				char next;
-				if(i + 1 < input.size()) next = input[i + 1];
+        char next;
+        if(i + 1 < input.size()) next = input[i + 1];
 
         if (c == '\'' && !in_double_quote && !color_quote_mode) {
             in_single_quote = !in_single_quote;
@@ -88,97 +88,110 @@ std::string remove_comments_outside_quotes(const std::string& input) {
 }
 
 Args parse_arguments(std::string command) {
-	command = io::trim(command);
-	command = remove_comments_outside_quotes(command);
-	if(command.empty()) return {};
+  command = io::trim(command);
+  command = remove_comments_outside_quotes(command);
+  if(command.empty()) return {};
 
-	std::string buffer;
-	Args args;
+  std::string buffer;
+  Args args;
 
-	bool dq_mode = false;
-	bool sq_mode = false;
-	bool cq_mode = false;
-	bool literal = false;
+  bool dq_mode = false;
+  bool sq_mode = false;
+  bool cq_mode = false;
+  bool literal = false;
 
-	// Detect and replace alias in the raw command string
-	std::string first_word;
-	size_t i = 0;
-	while (i < command.size() && command[i] != ' ') {
-		first_word += command[i++];
-	}
-	std::string alias = get_alias(first_word, false);
-	std::string parsed_command = (alias != "UNKNOWN")
-		? alias + command.substr(first_word.size())
-		: command;
+  // Detect and replace alias in the raw command string
+  std::string first_word;
+  size_t i = 0;
+  while (i < command.size() && command[i] != ' ') {
+    first_word += command[i++];
+  }
+  std::string alias = get_alias(first_word, false);
+  std::string parsed_command = (alias != "UNKNOWN")
+    ? alias + command.substr(first_word.size())
+    : command;
 
-	// Now parse parsed_command instead of original command
-	buffer.clear();
-	for (i = 0; i < parsed_command.size(); i++) {
-		char c = parsed_command[i];
-		char next = (i + 1 < parsed_command.size()) ? parsed_command[i + 1] : '\0';
+  // Now parse parsed_command instead of original command
+  buffer.clear();
+  for (i = 0; i < parsed_command.size(); i++) {
+    char c = parsed_command[i];
+    char next = (i + 1 < parsed_command.size()) ? parsed_command[i + 1] : '\0';
 
-		// Start of quoted string
-		if ((c == '"' || c == '\'') && !dq_mode && !sq_mode) {
-			if (i > 0 && parsed_command[i - 1] == '@') {
-				cq_mode = true;
-				if (!buffer.empty() && buffer.back() == '@') {
-					buffer.pop_back();
-				}
-			}
-			if (i > 0 && parsed_command[i - 1] == 'R') {
-				literal = true;
-				if (!buffer.empty() && buffer.back() == 'R') {
-					buffer.pop_back();
-				}
-			}
-			if (c == '"') dq_mode = true;
-			else sq_mode = true;
-			continue;
-		}
+    // Start of quoted string
+    if ((c == '"' || c == '\'') && !dq_mode && !sq_mode) {
+      if (i > 0 && parsed_command[i - 1] == '@') {
+        cq_mode = true;
+        if (!buffer.empty() && buffer.back() == '@') {
+          buffer.pop_back();
+        }
+      }
+      if (i > 0 && parsed_command[i - 1] == 'E') {
+        literal = true;
+        if (!buffer.empty() && buffer.back() == 'E') {
+          buffer.pop_back();
+        }
+      }
+      if (c == '"') dq_mode = true;
+      else sq_mode = true;
+      continue;
+    }
 
-		// End of quoted string
-		if ((c == '"' && dq_mode) || (c == '\'' && sq_mode)) {
-			if (cq_mode) {
-				buffer = bracket_to_ansi(buffer);
-				cq_mode = false;
-			}
-			if(literal) {
-				buffer = unescape(buffer);
-				literal = false;
-			}
-			args.push_back(buffer);
-			buffer.clear();
-			dq_mode = false;
-			sq_mode = false;
-			continue;
-		}
+    // End of quoted string
+    if ((c == '"' && dq_mode) || (c == '\'' && sq_mode)) {
+      if (cq_mode) {
+        buffer = bracket_to_ansi(buffer);
+        cq_mode = false;
+      }
+      if (literal) {
+        int backslash_count = 0;
+        int j = i - 1;
+        while (j >= 0 && parsed_command[j] == '\\') {
+            backslash_count++;
+            j--;
+        }
+        if (backslash_count % 2 == 0) {  // quote NOT escaped
+            buffer = unescape(buffer);
+            literal = false;
+            args.push_back(buffer);
+            buffer.clear();
+        } else {
+            buffer.push_back(c);
+            continue;
+        }
+      }
+      args.push_back(buffer);
+      buffer.clear();
+      dq_mode = false;
+      sq_mode = false;
+      continue;
+    }
 
-		// Argument break
-		if (c == ' ' && !dq_mode && !sq_mode) {
-			if (!buffer.empty()) {
-				args.push_back(buffer);
-				buffer.clear();
-			}
-			continue;
-		}
+    // Argument break
+    if (c == ' ' && !dq_mode && !sq_mode) {
+      if (!buffer.empty()) {
+        args.push_back(buffer);
+        buffer.clear();
+      }
+      continue;
+    }
 
-		// Fallback
-		buffer.push_back(c);
-	}
+    // Fallback
+    buffer.push_back(c);
+  }
 
-	if (!buffer.empty()) {
-		args.push_back(buffer);
-	}
+  if (!buffer.empty()) {
+    args.push_back(buffer);
+  }
 
-	return args;
+  return args;
 }
 
 std::vector<Args> parse_pipe_commands(const std::string& command) {
-	std::vector<Args> result;
-	Args pipe_cmds = io::split(command, "|");
-	for (auto& cmd : pipe_cmds) {
-		cmd = io::trim(cmd);
-		result.push_back(parse_arguments(cmd));
-	}
-	return result;
+  std::vector<Args> result;
+  Args pipe_cmds = io::split(command, "|");
+  for (auto& cmd : pipe_cmds) {
+    cmd = io::trim(cmd);
+    result.push_back(parse_arguments(cmd));
+  }
+  return result;
 }

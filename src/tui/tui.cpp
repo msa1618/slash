@@ -2,6 +2,7 @@
 #include "../abstractions/iofuncs.h"
 
 #include <unordered_map>
+#include <sstream>
 
 static struct termios orig_tty;
 
@@ -35,9 +36,9 @@ void Tui::turn_cursor(bool b) {
 }
 
 void Tui::cleanup_and_exit(int code) {
+  disable_raw_mode();
   clear();
   switch_to_normal();
-  disable_raw_mode();
   turn_cursor(ON);
   _exit(code);
 }
@@ -64,6 +65,42 @@ void Tui::scroll_up() {
 void Tui::scroll_down() {
     // Scroll down one line (content moves up)
     io::print("\x1b[T");
+}
+
+void Tui::turn_linewrap(bool b) {
+  if(b) io::print("\x1b[?7l");
+  else io::print("\x1b[?7h");
+}
+
+void Tui::print_in_center_of_terminal(std::string text) {
+  int height = get_terminal_height();
+  int width = get_terminal_width();
+
+  std::vector<std::string> lines = io::split(text, "\n");
+
+  int max_length = 0;
+  for (auto& l : lines) {
+    int len = io::strip_ansi(l).size();
+    if (len > max_length) max_length = len;
+  }
+
+  int startRow = (height - static_cast<int>(lines.size())) / 2;
+  int startCol = (width - max_length) / 2;
+
+  for (size_t i = 0; i < lines.size(); ++i) {
+    int colOffset = startCol;
+    std::stringstream ss;
+    ss << "\033[" << (startRow + i + 1) << ";" << (colOffset + 1) << "H" 
+              << lines[i];
+    io::print(ss.str());
+  }
+  fflush(stdout);
+}
+
+void Tui::print_separator() {
+  for(int i = 0; i < Tui::get_terminal_width(); i++) {
+     io::print("─");
+  } io::print("\n");
 }
 
 int Tui::get_terminal_width() {
@@ -93,6 +130,9 @@ std::string Tui::get_keypress() {
   char c;
   if(read(tty_fd, &c, 1) != 1) return "";
   
+  if(c == '\t') return "Tab";
+  if(c == '\r' || c == '\n') return "Enter";
+  
   if(c == 27) {
     char seq[2];
     if (read(tty_fd, &seq[0], 1) != 1) return "";
@@ -105,6 +145,13 @@ std::string Tui::get_keypress() {
       case 'D': return "ArrowLeft";
     }
   }
+
+  if(c >= 1 && c <= 26) {
+    char ctrl_char = 'A' + (c - 1);
+    return "Ctrl+" + std::string(1, ctrl_char);
+  }
+
+  if(c == 127 || c == 8) return "Backspace";
 
   return std::string(1, c);
 }

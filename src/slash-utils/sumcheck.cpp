@@ -149,20 +149,27 @@ class Sumcheck {
 
     int exec(std::vector<std::string> args) {
       if(args.empty()) {
-        io::print(R"(sumcheck: compute checksums, md5, and sha-256
-usage: sumcheck <file> [option]
-       sumcheck -t <text> [option]
-
-flags:
-  -v | --vrc:    use VRC
-  -l | --lrc:    use LRC
-  -c | --crc32:  use CRC32
-  -s | --sha256: use SHA256
-  -m | --md5:    use MD5
-
-  -t | --text:        incoming input is text (useful for piping)
-  -n | --no-colo[u]r: output without color, also for piping
-)");
+        io::print(get_helpmsg({
+          "Computes various checksums",
+          {
+            "sumcheck [options] <file-or-text>"
+          },
+          {
+            {"-v", "--vrc", "Computes Vertical Redundancy Check (VRC)"},
+            {"-l", "--lrc", "Computes Longitudinal Redundancy Check (LRC)"},
+            {"-c", "--crc32", "Computes Cyclic Redundancy Check (CRC32)"},
+            {"-m", "--md5", "Computes MD5"},
+            {"-s", "--sha256", "Computes SHA-256"},
+            {"-t", "--text", "The incoming argument is text and not a path"}
+          },
+          {
+            {"sumcheck -c packet.txt", "Computes CRC32 of packet.txt"},
+            {"sumcheck -s -t \"sup gng\"", "Computes SHA-256 of the argument"},
+            {"echo \"Example content\" | sumcheck -m -t", "Computes MD5 of the piped content"}
+          },
+          "",
+          ""
+        }));
           return 0;
       }
 

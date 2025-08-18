@@ -1,5 +1,5 @@
-#ifndef AMBER_VAR_H
-#define AMBER_VAR_H
+#ifndef SLASH_VAR_H
+#define SLASH_VAR_H
 
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
@@ -10,4 +10,4 @@ void create_variable(std::string name, std::string value);
 std::variant<std::string, int> get_value(std::string name);
 int var(std::vector<std::string> args);
 
-#endif // AMBER_VAR_H
+#endif // SLASH_VAR_H

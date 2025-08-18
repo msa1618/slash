@@ -1,6 +1,7 @@
 #include "../tui/tui.h"
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
+#include "../help_helper.h"
 
 #include <sstream>
 #include <csignal>
@@ -114,14 +115,21 @@ class Pager {
 
     int exec(std::vector<std::string> args) {
       if(args.empty()) {
-        io::print(R"(pager: paginate long text i.e. use entire terminal to display text
-usage: pager <filepath>
-       pager -t <text>
-       cmd | pager -t
-       
-flags:
-  -t | --text: the incoming argument is text
-)");
+        io::print(get_helpmsg({
+          "Paginate long files or text",
+          {
+            "pager <file>",
+            "pager -t <text>"
+          },
+          {
+            {"-t", "--text", "The incoming input is text"}
+          },
+          {
+            {"pager super_long.txt", "Paginates super_long.txt"},
+          },
+          "",
+          ""
+        }));
           return 0;
       }
 

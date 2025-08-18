@@ -18,20 +18,20 @@ std::string python_sh(std::string code) {
     };
 
     std::regex quotes(R"("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')");
-		std::regex comments(R"(#.*$)", std::regex_constants::multiline);
-		std::regex decorators(R"(@[A-Za-z_][A-Za-z0-9_]*)");
-		std::regex functions(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\())");
-		std::regex variables(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\s*=))");
-		std::regex numbers(R"(0b[01]+|0x[0-9A-Fa-f]+|\b\d+(\.\d+)?\b)");
-		std::regex kwds("\\b(" + io::join(keywords, "|") + ")\\b");
-		std::regex vars(R"(\b[A-Za-z_][A-Za-z0-9_]*\b(?=\s*=))");
+    std::regex comments(R"(#.*$)", std::regex_constants::multiline);
+    std::regex decorators(R"(@[A-Za-z_][A-Za-z0-9_]*)");
+    std::regex functions(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\())");
+    std::regex variables(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\s*=))");
+    std::regex numbers(R"(0b[01]+|0x[0-9A-Fa-f]+|\b\d+(\.\d+)?\b)");
+    std::regex kwds("\\b(" + io::join(keywords, "|") + ")\\b");
+    std::regex vars(R"(\b[A-Za-z_][A-Za-z0-9_]*\b(?=\s*=))");
 
 
     const std::string blue = "\033[38;2;80;120;200m";
     const std::string gray = "\033[38;2;128;128;128m";
 
     std::vector<std::pair<std::regex, std::string>> patterns = {
-				{vars, "\033[38;5;117m"},
+        {vars, "\033[38;5;117m"},
         {numbers, "\033[38;2;236;157;237m"},
         {kwds, "\033[38;2;39;125;161m"},
         {functions, "\033[38;2;255;159;28m"},

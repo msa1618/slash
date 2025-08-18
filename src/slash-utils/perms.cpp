@@ -1,12 +1,13 @@
 #include <sstream>
-#include "../command.h"
+
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
+#include <algorithm>
 
-class Perms : public Command {
+class Perms  {
   private:
     std::string process_code(int code_in_octal) {
       std::stringstream ss;
@@ -122,9 +123,9 @@ class Perms : public Command {
     }
 
   public:
-    Perms() : Command("perms", "", "") {}
+    Perms() {}
 
-    int exec(std::vector<std::string> args) override {
+    int exec(std::vector<std::string> args) {
      if (args.empty()) {
         io::print("perms: set, and view file permissions\n"
                   "usage: perms <file> [mode]\n"

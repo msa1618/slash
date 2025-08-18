@@ -8,9 +8,11 @@
 
 #include "../abstractions/info.h"
 #include "../abstractions/iofuncs.h"
-#include "../command.h"
+#include "../help_helper.h"
+#include "../cmd_highlighter.h"
 
-class Listen : public Command {
+
+class Listen {
   private:
     std::string get_process_name(std::string pid) {
       std::string comm_path = "/proc/" + pid + "/comm";
@@ -90,27 +92,30 @@ class Listen : public Command {
     }
 
   public:
-    Listen() : Command("listen", "", "") {}
+    Listen() {}
 
     int exec(std::vector<std::string> args) {
       if(args.empty()) {
-        std::string help = R"(listen: listen for file changes like modification, deletion... By default, it listens for all events.
-usage: listen <filepath>
-       listen [options] <filepath>
-
-flags:
-  -d | --deletion:     listen for deletion
-  -m | --modification: listen for modification
-  -o | --opened:       listen for opening
-  -r | --read:         listen for reading
-  -c | --close:        listen for closing
-  -C | --creation:     listen for creation
-
-tip: you can combine multiple short arguments into one argument to save time
-(ex. listen -dmo will listen for deletion, modification, and opening)
-)";
-        io::replace_all(help, "tip:", green + bold + "tip:" + reset);
-        io::print(help);
+        io::print(get_helpmsg({
+          "Listens for file changes",
+          {
+            "listen [options] <file>"
+          },
+          {
+            {"-d", "--deletion", "Listen for deletion"},
+            {"-m", "--modification", "Listen for modification"},
+            {"-o", "--opened", "Listen for opening"},
+            {"-r", "--read", "Listen for reading"},
+            {"-c", "--close", "Listen for closing"},
+            {"-C", "--creation", "Listen for creation"},
+          },
+          {
+            {"listen -d -m -o script.ts", "Listen for deletion, modification, and opening in script.ts"},
+            {"listen -r main.cpp", "Listen for reading in main.cpp"}
+          },
+          "",
+          "You can combine multiple arguments into one to save time.\n  e.g. " + highl("listen -dmo main.rs")
+        }));
         return 0;
       }
 

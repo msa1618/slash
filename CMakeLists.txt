@@ -20,12 +20,21 @@ find_package(Boost REQUIRED COMPONENTS regex)
 
 add_executable(slash
         src/main.cpp
+        src/core/jobs.cpp
+        src/core/jobs.h
+        src/builtin-cmds/help.h
+        src/builtin-cmds/help.cpp
+        src/builtin-cmds/jobs.h
+        src/builtin-cmds/jobs.cpp
+        src/builtin-cmds/slash-greeting.h
+        src/builtin-cmds/slash-greeting.cpp
         src/core/execution.h
         src/core/execution.cpp
         src/core/prompt.cpp
         src/core/prompt.h
         src/core/startup.h
         src/core/startup.cpp
+        src/abstractions/definitions.h
         src/abstractions/iofuncs.cpp
         src/abstractions/iofuncs.h
         src/abstractions/info.cpp
@@ -44,6 +53,8 @@ add_executable(slash
         src/builtin-cmds/var.h
         src/builtin-cmds/alias.cpp
         src/builtin-cmds/alias.h
+        src/help_helper.cpp
+        src/help_helper.h
 )
 
 target_link_libraries(slash PRIVATE git2)

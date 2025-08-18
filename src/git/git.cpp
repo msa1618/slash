@@ -23,26 +23,26 @@ GitRepo::GitRepo(std::string repo_path) : repo(nullptr), path(repo_path) {
 }
 
 GitRepo::~GitRepo() {
-	if (repo) git_repository_free(repo);
-	git_libgit2_shutdown();
+  if (repo) git_repository_free(repo);
+  git_libgit2_shutdown();
 }
 
 git_repository* GitRepo::get_repo() {
-	return repo;
+  return repo;
 }
 
 bool GitRepo::has_git_repo() {
-	std::filesystem::path current = path;
-	while(true) {
-		if (git_repository_open_ext(&repo, current.c_str(), 0, nullptr) == 0) {
-			return true;
-		}
+  std::filesystem::path current = path;
+  while(true) {
+    if (git_repository_open_ext(&repo, current.c_str(), 0, nullptr) == 0) {
+      return true;
+    }
 
-		if(current == "/") break;
-		current = current.parent_path();
-	}
+    if(current == "/") break;
+    current = current.parent_path();
+  }
 
-	return false;
+  return false;
 }
 
 std::string GitRepo::get_root_path() {
@@ -53,15 +53,15 @@ std::string GitRepo::get_root_path() {
 
 std::string GitRepo::get_file_status(std::string filepath) {
 
-	// Characters:
-	// N: Untracked
-	// U: Unmodified
-	// M: Modified
-	// S: Staged
-	// I: Ignored
+  // Characters:
+  // N: Untracked
+  // U: Unmodified
+  // M: Modified
+  // S: Staged
+  // I: Ignored
 
-	unsigned int status_flags = 0;
-	int error = git_status_file(&status_flags, repo, filepath.c_str());
+  unsigned int status_flags = 0;
+  int error = git_status_file(&status_flags, repo, filepath.c_str());
 if (error != 0) {
     return "";
 }
@@ -90,10 +90,10 @@ return "U";
 }
 
 std::vector<std::pair<std::string, std::string>> GitRepo::get_file_changes(std::string filepath) {
-		if(get_file_status(filepath) == "N") {
-			info::error("File is not tracked.");
-			return {{}};
-		}
+    if(get_file_status(filepath) == "N") {
+      info::error("File is not tracked.");
+      return {{}};
+    }
     std::vector<std::pair<std::string, std::string>> lines_with_status;
 
     struct Payload {
@@ -109,7 +109,7 @@ std::vector<std::pair<std::string, std::string>> GitRepo::get_file_changes(std::
     git_diff_index_to_workdir(&diff, repo, NULL, &opts);
 
     int res =
-			git_diff_foreach(
+      git_diff_foreach(
         diff,
         nullptr, nullptr,
         [](const git_diff_delta* delta, const git_diff_hunk* hunk, void* payload) {
@@ -124,10 +124,10 @@ std::vector<std::pair<std::string, std::string>> GitRepo::get_file_changes(std::
 
             if (line->origin == GIT_DIFF_LINE_DELETION) {
                 p->last_deleted = line;
-						} else if (line->origin == GIT_DIFF_LINE_CONTEXT) {
-							 p->out->emplace_back(" ", std::string(line->content, line->content_len));
-					  }
-						 else if (line->origin == GIT_DIFF_LINE_ADDITION) {
+            } else if (line->origin == GIT_DIFF_LINE_CONTEXT) {
+               p->out->emplace_back(" ", std::string(line->content, line->content_len));
+            }
+             else if (line->origin == GIT_DIFF_LINE_ADDITION) {
                 if (p->last_deleted) {
                     // Modified line (deletion + addition)
                     std::string add_line(line->content, line->content_len);
@@ -142,7 +142,7 @@ std::vector<std::pair<std::string, std::string>> GitRepo::get_file_changes(std::
             }
             return 0;
         },
-        &payload);	
+        &payload);  
 
     git_diff_free(diff);
 
@@ -150,29 +150,29 @@ std::vector<std::pair<std::string, std::string>> GitRepo::get_file_changes(std::
 }
 
 std::string GitRepo::get_branch_name() {
-	const char* branch_name = nullptr;
-	git_reference* head = nullptr;
-	std::filesystem::path current = path;
+  const char* branch_name = nullptr;
+  git_reference* head = nullptr;
+  std::filesystem::path current = path;
 
-	while (true) {
-		git_repository* temp_repo = nullptr;
-		if (git_repository_open(&temp_repo, current.c_str()) == 0) {
-			if (git_repository_head(&head, temp_repo) == 0) {
-				if (git_branch_name(&branch_name, head) == 0 && branch_name) {
-					std::string result(branch_name);
-					git_reference_free(head);
-					git_repository_free(temp_repo);
-					return result;
-				}
-				git_reference_free(head);
-			}
-			git_repository_free(temp_repo);
-		}
+  while (true) {
+    git_repository* temp_repo = nullptr;
+    if (git_repository_open(&temp_repo, current.c_str()) == 0) {
+      if (git_repository_head(&head, temp_repo) == 0) {
+        if (git_branch_name(&branch_name, head) == 0 && branch_name) {
+          std::string result(branch_name);
+          git_reference_free(head);
+          git_repository_free(temp_repo);
+          return result;
+        }
+        git_reference_free(head);
+      }
+      git_repository_free(temp_repo);
+    }
 
-		if (current == "/") break;
-		current = current.parent_path();
-	}
+    if (current == "/") break;
+    current = current.parent_path();
+  }
 
-	return "";
+  return "";
 }
 

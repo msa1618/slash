@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "../command.h"
+
 #include "../abstractions/iofuncs.h"
 
 #include <vector>
@@ -32,13 +32,13 @@ class Mkf : public Command {
 };
 
 int main(int argc, char* argv[]) {
-	Mkf mkf;
+  Mkf mkf;
 
-	std::vector<std::string> args;
-	for (int i = 1; i < argc; ++i) {
-		args.emplace_back(argv[i]);
-	}
+  std::vector<std::string> args;
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
+  }
 
-	mkf.exec(args);
-	return 0;
+  mkf.exec(args);
+  return 0;
 }

@@ -1,7 +1,9 @@
-#include "../command.h"
+
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 #include "../git/git.h"
+
+#include "../help_helper.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -13,26 +15,18 @@
 
 #include <unordered_map>
 #include <filesystem>
-
 #include <sys/ioctl.h>
-
 #include <regex>
 
 int get_terminal_width() {
     struct winsize w;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
-        info::warning("Couldn't get the terminal width. 80 will be used\n");
-        return 80; // Fallback width
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0) {
+        return w.ws_col;
     }
-    return w.ws_col;
+    return 80; // fallback width
 }
 
-std::string strip_ansi(std::string str) {
-    std::regex ansi("\\x1B\\[[0-9;]*[A-Za-z]");
-    return std::regex_replace(str, ansi, "");
-}
-
-class Ls : public Command {
+class Ls {
 private:
     std::string unknown_file = "\uea7b";
     std::string dir          = "\uf4d3";
@@ -208,25 +202,25 @@ private:
     entries.push_back({fullname.str(), fullname.str().length(), git_char});
 }
         std::sort(entries.begin(), entries.end(), [](std::tuple<std::string, int, std::string>& a, std::tuple<std::string, int, std::string>& b) {
-            auto first = strip_ansi(std::get<0>(a));
-            auto sec = strip_ansi(std::get<0>(b));
-            return strip_ansi(first) < strip_ansi(sec);
+            auto first = io::strip_ansi(std::get<0>(a));
+            auto sec = io::strip_ansi(std::get<0>(b));
+            return io::strip_ansi(first) < io::strip_ansi(sec);
         });
  
         int current_width_available = get_terminal_width();
         int longest_name_length = 0;
 
         for(auto& [name, nlength, git_char] : entries) {
-            int length_excluding_ansi = strip_ansi(name).length();
+            int length_excluding_ansi = io::strip_ansi(name).length();
             if(length_excluding_ansi > longest_name_length) longest_name_length = length_excluding_ansi + 1; // +1 for padding
         }
 
         for(auto& [name, nlength, git_char] : entries) {
-            int stripped_len = strip_ansi(name).length();
+            int stripped_len = io::strip_ansi(name).length();
             if (stripped_len < longest_name_length)
                 name.append(longest_name_length - stripped_len, ' ');
 
-            if(strip_ansi(name).length() > current_width_available) {
+            if(io::strip_ansi(name).length() > current_width_available) {
                 io::print("\n");
                 current_width_available = get_terminal_width();
             }
@@ -308,7 +302,7 @@ private:
     }
 
 public:
-    Ls() : Command("ls", "Lists all files, directories, and links in a directory", "") {}
+    Ls() {}
 
     int exec(std::vector<std::string> args) {
         if (args.empty()) {
@@ -326,8 +320,8 @@ public:
         bool with_git = false;
 
         std::vector<std::string> validArgs = {
-            "-t", "-a", "-i", "-g",
-            "--tree", "--all", "--icons", "--git"
+            "-t", "-a", "-i", "-g", "-h"
+            "--tree", "--all", "--icons", "--git", "--help"
         };
 
         for (auto& arg : args) {
@@ -340,6 +334,30 @@ public:
             if (arg == "-a" || arg == "--all") print_hidden = true;
             if (arg == "-i" || arg == "--icons") with_icons = true;
             if (arg == "-g" || arg == "--git") with_git = true;
+
+            if (arg == "-h" || arg == "--help") {
+                io::print(get_helpmsg({
+                    "List all files and directories in a specified directory",
+                    {
+                        "ls",
+                        "ls <directory>",
+                        "ls [option] <directory>"
+                    },
+                    {
+                        {"-t", "--tree", "Prints content recursively"},
+                        {"-a", "--all", "Print hidden files too"},
+                        {"-i", "--icons", "Print with nerd font icons"},
+                        {"-g", "--git", "Print with git statuses"}
+                    },
+                    {
+                        {"ls", "Print all files in the current directory"},
+                        {"ls /dev", "Print all files in /dev"},
+                        {"ls -t -a /", "Print every single file in the system (Go on try it)"},
+                    },
+                    "",
+                    ""
+                }));
+            }
 
             if (!arg.starts_with("-")) {
                 path = arg;
