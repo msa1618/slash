@@ -4,16 +4,18 @@
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
 #include "../help_helper.h"
+#include <bitset>
 
 class Dump {
   private:
-    enum Types {
+    enum class Type {
       Hex,
       Octal,
-      Decimal
+      Decimal,
+      Binary
     };
 
-    int dump(bool is_file, int mode, std::string input) {
+    int dump(bool is_file, Type mode, std::string input) {
       std::string text;
 
       if(is_file) {
@@ -28,39 +30,49 @@ class Dump {
       } else text = input;
 
       int bytesRead = 0;
-      for(int i = 0; i < text.size(); i += 16) {
+      int no_of_bytes = mode == Type::Binary ? 6 : 16;
+
+      for(int i = 0; i < text.size(); i += no_of_bytes) {
         std::stringstream ss;
         ss << magenta << std::setw(7) << std::setfill('0');
-        if(mode == Hex) ss << std::hex;
-        else if(mode == Octal) ss << std::oct;
-        else if(mode == Decimal) ss << std::dec;
+        if(mode == Type::Hex || mode == Type::Binary) ss << std::hex;
+        else if(mode == Type::Octal) ss << std::oct;
+        else if(mode == Type::Decimal) ss << std::dec;
         ss << bytesRead << ": " << reset;
         
-        for(size_t j = 0; j < 16; ++j) {
+        for(size_t j = 0; j < no_of_bytes; ++j) {
           if(i + j < text.size()) {
             unsigned char c = text[i + j];
             int width;
-            if(mode == Hex) width = 2;
+            if(mode == Type::Hex) width = 2;
+            else if(mode == Type::Binary) width = 8;
             else width = 3;
 
             ss << std::setw(width) << std::setfill('0') << std::uppercase;
-            if(mode == Hex) ss << std::hex;
-            else if(mode == Octal) ss << std::oct;
-            else if(mode == Decimal) ss << std::dec;
-            ss << (int)c << " ";
+            if(mode == Type::Binary) {
+              std::bitset<8> ch(c);
+              ss << ch.to_string() << " ";
+            } else {
+              if(mode == Type::Hex) ss << std::hex;
+              else if(mode == Type::Octal) ss << std::oct;
+              else if(mode == Type::Decimal) ss << std::dec;
+              ss << (int)c << " ";
+            }
           } else {
-            if(mode == Hex) ss << "   "; // pad for missing bytes
+            // pad for missing bytes
+            if(mode == Type::Hex) ss << "   ";
+            else if(mode == Type::Binary) ss << "         ";
             else ss << "    ";
           }
         }
 
-        for(size_t j = 0; j < 16 && (i + j) < text.size(); ++j) {
+        for(size_t j = 0; j < no_of_bytes && (i + j) < text.size(); ++j) {
             unsigned char c = text[i + j];
             ss << green << (std::isprint(c) ? static_cast<char>(c) : '.') << reset;
         }
 
         io::print(ss.str() + "\n");
-        bytesRead += 16;
+        bytesRead += no_of_bytes;
       }
       return 0;
     }
@@ -79,7 +91,7 @@ class Dump {
             {
               {"-o", "--octal", "Dump in octal"},
               {"-d", "--decimal", "Dump in decimal"},
-              {"-b", "--binary", "Dump in binary"},
+              {"-b", "--bin", "Dump in binary"},
               {"-t", "--text", "The next argument is text (used for piping)"}
             },
             {
@@ -94,11 +106,11 @@ class Dump {
 
         std::vector<std::string> valid_args = {
           "-t", "-o", "-d", "-b",
-          "--text", "--octal", "--decimal", "--binary"
+          "--text", "--octal", "--decimal", "--bin"
         };
 
         bool is_file = true;
-        int mode = Hex;
+        Type mode = Type::Hex;
         std::string a;
 
         for(auto& arg : args) {
@@ -108,8 +120,9 @@ class Dump {
           }
 
           if(arg == "-t" || arg == "--text") is_file = false;
-          if(arg == "-o" || arg == "--octal") mode = Octal;
-          if(arg == "-d" || arg == "--decimal") mode = Decimal;
+          if(arg == "-b" || arg == "--bin") mode = Type::Binary;
+          if(arg == "-o" || arg == "--octal") mode = Type::Octal;
+          if(arg == "-d" || arg == "--decimal") mode = Type::Decimal;
           if(!arg.starts_with("-")) a = arg;
         }
 
