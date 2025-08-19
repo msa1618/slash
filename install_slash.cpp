@@ -214,6 +214,10 @@ int install() {
   print("Great! Installation will start now.\n\n");
 
   std::string HOME = getenv("HOME");
+  if(getenv("HOME") == nullptr) {
+    error("Please specify a home directory");
+    return -1;
+  }
   print("[Setup] Creating .slash directory in ~/\n");
     if (create_file(HOME + "/.slash", true) != 0) return 1;
     std::string slash_path = HOME + "/.slash";
@@ -230,7 +234,7 @@ int install() {
     print("[Setup] Creating .slash_startup_commands\n");
     if (create_file(slash_path + "/.slash_startup_commands", false) != 0) return 1;
 
-    if (overwrite_file(slash_path + "/.slash/.slash_startup_commands", get_settings()) != 0) return 1;
+    if (overwrite_file(slash_path + "/.slash_startup_commands", "slash-greeting") != 0) return 1;
 
     print("[Setup] Creating ~/.slash/config\n");
     if (create_file(slash_path + "/config", true) != 0) return 1;
