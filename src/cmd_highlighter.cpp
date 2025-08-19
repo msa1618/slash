@@ -66,14 +66,18 @@ std::string highl(std::string prompt) {
   boost::regex cmds(R"((?:^|\s*(?<=&&)|\s*(?<=\|)|\s*(?<=;))\s*([^\s]+))"); 
   boost::regex opers(R"((&&|\|\||\||;))");
   boost::regex exec_flags(R"(@(r|t|o|O|e))");
+  boost::regex links(R"([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s/$.?#].[^\s]*)");
+  boost::regex subcommands(R"(\b[A-Za-z0-9\-_]+\b)");
 
-  const std::string cmd_color         = "\x1b[38;2;158;227;125m";
+  const std::string cmd_color         = "\x1b[38;2;96;213;200m";
   const std::string number_color      = "\x1b[38;2;52;160;164m";
   const std::string flag_color        = "\x1b[38;2;131;197;190m";
   const std::string path_color        = "\x1b[38;2;221;161;94m";
   const std::string comment_color     = "\x1b[38;2;73;80;87m";
   const std::string quote_color       = "\x1b[38;2;88;129;87m";
   const std::string quote_pref_color  = "\x1b[38;2;221;161;94m";
+  const std::string link_color        = underline + "\x1b[38;2;17;138;178m";
+  const std::string subcommand_color  = "\x1b[38;2;226;149;120m";
   const std::string exec_flags_color  = magenta;
 
   std::vector<std::pair<boost::regex, std::string>> patterns = {
@@ -85,7 +89,9 @@ std::string highl(std::string prompt) {
       {cmds, cmd_color},
       {opers, reset},
       {quote_pref, quote_pref_color},
+      {links, link_color},
       {quotes, quote_color},
+      {subcommands, subcommand_color}
   };
 
   return highlight(prompt, patterns);
