@@ -69,6 +69,12 @@ std::string get_prompt_config_path() {
     return home + "/" + *prompt_path;
 }
 
+int get_terminal_width() {
+  struct winsize w;
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+  return w.ws_col;
+}
+
 #pragma endregion
 
 std::string get_time_segment() {
@@ -368,10 +374,19 @@ void redraw_prompt(std::string content) {
   if (j.empty()) return;
 
   auto newline_before = get_bool(j, "newlineBefore", "prompt");
+  auto prompt_chars = get_string(j, "character", "prompt");
+
   if(newline_before && *newline_before) {
-    io::print("\x1b[1A");
-    io::print(get_prompt_segment());
-    io::print(content);
+    int content_rows = (int)ceil(((double)io::strip_ansi(content).length() + io::strip_ansi(prompt_chars.value_or("")).length()) / get_terminal_width());
+    if(content_rows == 0) {
+      io::print("\r");
+      io::print(get_prompt_segment() + content);
+    } else {
+      std::stringstream move_cursor;
+      move_cursor << "\x1b[" << content_rows << "A";
+      io::print(move_cursor.str());
+      io::print("\r" + get_prompt_segment() + content);
+    }
   } else {
     io::print("\x1b[2K\r");
     draw_prompt();

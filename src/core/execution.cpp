@@ -154,81 +154,6 @@ std::string message(int sig, bool core_dumped) {
     }
 }
 
-int pipe_execute(std::vector<std::vector<std::string>> commands) {
-    int n = commands.size();
-    if (n == 0) return 0;
-
-    std::vector<int> pipefds(2 * (n - 1)); // Two fds per pipe
-    std::vector<pid_t> pids;
-
-    // Create pipes
-    for (int i = 0; i < n - 1; ++i) {
-        if (pipe(&pipefds[2 * i]) < 0) {
-            std::string error = std::string("Failed to create pipe: ") + strerror(errno);
-            info::error("Failed to create pipe", errno);
-            return errno;
-        }
-    }
-
-    for (int i = 0; i < n; ++i) {
-        pid_t pid = fork();
-        if (pid == -1) {
-            info::error("Fork failed", errno);
-            return -1;
-        }
-
-        if (pid == 0) { // Child
-            // If not first command, set stdin to read end of previous pipe
-            if (i != 0) {
-                dup2(pipefds[2 * (i - 1)], STDIN_FILENO);
-            }
-            // If not last command, set stdout to write end of current pipe
-            if (i != n - 1) {
-                dup2(pipefds[2 * i + 1], STDOUT_FILENO);
-            }
-
-            // Close all pipe fds in child (they are duplicated if needed)
-            for (int fd : pipefds) close(fd);
-
-            // Build argv
-            std::vector<char*> argv;
-            for (auto& arg : commands[i]) {
-                argv.push_back(const_cast<char*>(arg.c_str()));
-            }
-            argv.push_back(nullptr);
-
-            // Execute command
-            execvp(argv[0], argv.data());
-
-            // If execvp fails
-            std::string error = "Failed to execute \"" + std::string(argv[0]) + "\": " + strerror(errno);
-            info::error(error, errno);
-            exit(errno);
-        }
-
-        pids.push_back(pid);
-    }
-
-    // Parent closes all pipe fds
-    for (int fd : pipefds) close(fd);
-
-    // Wait for all children
-    int exit_status = 0;
-    for (pid_t pid : pids) {
-        int status;
-        if (waitpid(pid, &status, 0) == -1) {
-            info::error("waitpid failed", errno);
-            return -1;
-        }
-        if (WIFEXITED(status)) {
-            int code = WEXITSTATUS(status);
-            if (code != 0) exit_status = code; // capture last non-zero exit code
-        }
-    }
-
-    return exit_status;
-  }
-
 int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std::chrono::_V2::system_clock::time_point start) {
     struct sigaction in{};
   in.sa_handler = handle_sigint;
@@ -310,21 +235,14 @@ int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std:
 
 
 
-int execute(std::vector<std::string> parsed_args, std::string input, bool save_to_history, bool bg, RedirectInfo rinfo, ExecFlags info = {}) {
+int execute(std::vector<std::string> parsed_args, std::string input, bool bg, RedirectInfo rinfo, ExecFlags info = {}) {
   if (parsed_args.empty()) return 0;
 
-  std::string cmd = parsed_args[0]; // To save the original command name instead of ~/slash-utils/cmd if it's a slash utility
+  std::string cmd = parsed_args[0];
 
   bool using_path = false;
   const char* home_env = getenv("HOME");
   std::string home_dir = home_env ? home_env : "";
-
-  // If command is a slash utility, change the path of the first argument
-  std::string cmd_path = std::string(home_env) + "/.slash/slash-utils/" + parsed_args[0];
-  if (access(cmd_path.c_str(), X_OK) == 0) {
-    parsed_args[0] = cmd_path;
-    using_path = true;
-  }
 
   bool stdout_only   = io::vecContains(parsed_args, "@o");
   bool stderr_only   = io::vecContains(parsed_args, "@O");
@@ -342,21 +260,6 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
   if(!parsed_args.empty()) {
     while(parsed_args.back() == "@e" || parsed_args.back() == "@o" || parsed_args.back() == "@O" || parsed_args.back() == "@r" || parsed_args.back() == "@t") {
       parsed_args.pop_back();
-    }
-  }
-
-  std::vector<std::string> original_cmd = io::split(input, " ");
-  original_cmd[0] = cmd;
-
-  if (save_to_history) {
-    std::string history_path = std::string(home_env) + "/.slash/.slash_history";
-    auto data = using_path ? io::join(original_cmd, " ") : input;
-    data = io::trim(data);
-
-    if (io::write_to_file(history_path, data + "\n") != 0) {
-      std::string error = std::string("Failed to save command to history: ") + strerror(errno);
-      info::error(error, errno, history_path);
-      return -1;
     }
   }
 
@@ -490,8 +393,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool save_t
   }
 }
 
-
-int exec(std::vector<std::string> args, std::string raw_input, bool save_to_his) {
+int exec(std::vector<std::string> args, std::string raw_input) {
     raw_input = io::trim(raw_input);
     if (args.empty()) return 0;
 
@@ -553,25 +455,23 @@ int exec(std::vector<std::string> args, std::string raw_input, bool save_to_his)
         rinfo.filepath = io::trim(parts[1]);
         std::vector<std::string> new_args = parse_arguments(command_part);
 
-        return execute(new_args, command_part, save_to_his, bg, rinfo);
+        return execute(new_args, command_part, bg, rinfo);
     }
 
     // Handle multiple commands separated by ";"
     if (io::vecContains(args, ";")) {
-    save_to_history(args, raw_input);
         for (auto cmd : io::split(raw_input, ";")) {
             cmd = io::trim(cmd);
-            int res = exec(parse_arguments(cmd), cmd, false);
+            int res = exec(parse_arguments(cmd), cmd);
         }
         return 0;
     }
 
     // Handle "&&"
     if (io::vecContains(args, "&&")) {
-        save_to_history(args, raw_input);
         for (auto cmd : io::split(raw_input, "&&")) {
             cmd = io::trim(cmd);
-            int res = exec(args, cmd, false);
+            int res = exec(parse_arguments(cmd), cmd);
             if (res != 0) break;
         }
         return 0;
@@ -579,16 +479,16 @@ int exec(std::vector<std::string> args, std::string raw_input, bool save_to_his)
 
     // Handle "||"
     if (io::vecContains(args, "||")) {
-    save_to_history(args, raw_input);
         for (auto cmd : io::split(raw_input, "||")) {
             cmd = io::trim(cmd);
-            int res = exec(args, cmd, false);
+            int res = exec(args, cmd);
             if (res == 0) break;
         }
         return 0;
     }
 
-    // Handle pipes
+    // Handle pipes 
+    /*
     if (io::vecContains(args, "|")) {
         std::vector<std::vector<std::string>> commands;
         for (auto& cmd : io::split(raw_input, "|")) {
@@ -597,6 +497,37 @@ int exec(std::vector<std::string> args, std::string raw_input, bool save_to_his)
         }
         return pipe_execute(commands);
     }
+    */
 
-    return execute(args, raw_input, save_to_his, bg, rinfo);
+    return execute(args, raw_input, bg, rinfo);
+}
+
+
+int pipe_exec(std::vector<std::vector<std::string>> commands, std::string raw_input) {
+  int n = commands.size();
+  if(n == 0) return 0;
+
+  std::vector<int> pipefds(2 * (n - 1));
+  for(int i = 0; i < n - 1; ++i) pipe(&pipefds[2 * i]);
+
+  std::vector<pid_t> pids;
+  for(int i = 0; i < n; i++) {
+    pid_t pid = fork();
+    if(pid == 0) {
+      // redirect stdin
+      if(i != 0) dup2(pipefds[2 * ( i - 1)], STDIN_FILENO);
+      // redirect stdout
+      if(i != n-1) dup2(pipefds[2 * i + 1], STDOUT_FILENO);
+
+      exec(commands[i], raw_input);
+    } else pids.push_back(pid);
+  }
+
+  for(auto& fd : pipefds) close(fd);
+
+  int status = 0;
+    for(pid_t pid : pids) {
+        waitpid(pid, &status, 0);
+  }
+  return status;
 }

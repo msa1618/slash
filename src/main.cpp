@@ -39,8 +39,9 @@ int main(int argc, char* argv[]) {
 
         auto original_args = args;
         args = parse_arguments(io::join(args, " "));
+        save_to_history(args, io::join(args, " "));
 
-        exec(args, io::join(original_args, " "), true);
+        exec(args, io::join(original_args, " "));
         return 0;
     }
 
@@ -52,10 +53,12 @@ int main(int argc, char* argv[]) {
         if(input.empty() || input.starts_with("#")) continue;
 
         std::vector<std::string> args = parse_arguments(input);
-        exec(args, input, true);
+        if(!args.empty()) save_to_history(args, input);
 
-    // re-enable
-    enable_raw_mode();
+        exec(args, input);
+
+        // re-enable
+        enable_raw_mode();
     }
     return 0;
 }
