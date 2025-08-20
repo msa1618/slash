@@ -4,6 +4,11 @@
 #include "../git/git.h"
 #include "syntax_highlighting/cpp.h"
 #include "syntax_highlighting/python.h"
+#include "syntax_highlighting/java.h"
+#include "syntax_highlighting/rust.h"
+#include "syntax_highlighting/lua.h"
+#include "syntax_highlighting/js.h"
+#include "syntax_highlighting/go.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <algorithm>
@@ -22,7 +27,7 @@ std::string tab_to_spaces(std::string content, int indent) {
   return content;
 }
 
-class Read {
+class Lynx {
   private:
     std::vector<std::pair<std::string, std::string>> filter_duplicates(std::vector<std::pair<std::string, std::string>> input) {
       std::unordered_set<std::string> seen;
@@ -135,8 +140,13 @@ class Read {
       for(auto& [gc, l] : content_to_use) {
         // Highlighting isn't implemented yet when there are hidden characters, otherwise you'll see terminal gore
         if(!hidden && !reverse_text && !no_highlight) {
-          if(fullpath.ends_with(".cpp")) l = cpp_sh(l);
+          if(fullpath.ends_with(".cpp") || fullpath.ends_with(".h")) l = cpp_sh(l);
           if(fullpath.ends_with(".py")) l = python_sh(l);
+          if(fullpath.ends_with(".java")) l = java_sh(l);
+          if(fullpath.ends_with(".rs")) l = rust_sh(l);
+          if(fullpath.ends_with(".lua")) l = lua_sh(l);
+          if(fullpath.ends_with(".js") || fullpath.ends_with(".ts")) l = js_sh(l);
+          if(fullpath.ends_with(".go")) l = go_sh(l);
         } else break;
       }
       
@@ -174,7 +184,7 @@ class Read {
     }
 
   public:
-    Read() {};
+    Lynx() {};
 
     int exec(std::vector<std::string> args) {
       if (args.empty()) {
@@ -300,13 +310,13 @@ class Read {
 };
 
 int main(int argc, char* argv[]) {
-  Read read;
+  Lynx lynx;
 
   std::vector<std::string> args;
   for (int i = 1; i < argc; ++i) {
     args.emplace_back(argv[i]);
   }
 
-  read.exec(args);
+  lynx.exec(args);
   return 0;
 }

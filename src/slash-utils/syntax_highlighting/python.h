@@ -5,6 +5,7 @@
 #include <vector>
 #include <boost/regex.hpp>
 #include "helper.h"
+#include "colors.h"
 #include "../../abstractions/definitions.h"
 #include "../../abstractions/iofuncs.h"
 
@@ -31,13 +32,13 @@ std::string python_sh(std::string code) {
     const std::string gray = "\033[38;2;128;128;128m";
 
     std::vector<std::pair<boost::regex, std::string>> patterns = {
-        {vars, "\033[38;5;117m"},
-        {numbers, "\033[38;2;236;157;237m"},
-        {kwds, "\033[38;2;39;125;161m"},
-        {functions, "\033[38;2;255;159;28m"},
-        {decorators, blue},
-        {comments, gray},
-        {quotes, "\033[38;2;103;148;54m"}
+        {vars, COLOR_VARS},
+        {numbers, COLOR_NUMS},
+        {kwds, COLOR_KEYWORDS},
+        {functions, COLOR_FUNCS},
+        {decorators, COLOR_ANNOTATIONS},
+        {comments, COLOR_COMMENTS},
+        {quotes, COLOR_QUOTES}
     };
 
     return shighlight(code, patterns);

@@ -3,6 +3,7 @@
 
 #include "../../abstractions/iofuncs.h"
 #include "helper.h"
+#include "colors.h"
 #include <boost/regex.hpp>
 #include <string>
 #include <vector>
@@ -16,13 +17,13 @@ std::string cpp_sh(std::string content) {
         "constinit", "const_cast", "continue", "co_await", "co_return",
         "co_yield", "decltype", "default", "delete", "do", "double",
         "dynamic_cast", "else", "enum", "explicit", "export", "extern",
-        "false", "float", "for", "friend", "goto", "if", "inline",
+        "float", "for", "friend", "goto", "if", "inline",
         "int", "long", "mutable", "namespace", "new", "noexcept",
         "not", "not_eq", "nullptr", "operator", "or", "or_eq", "override",
         "private", "protected", "public", "register", "reinterpret_cast",
         "requires", "return", "short", "signed", "sizeof", "static",
         "static_assert", "static_cast", "struct", "switch", "synchronized",
-        "template", "this", "thread_local", "throw", "true", "try",
+        "template", "this", "thread_local", "throw", "try",
         "typedef", "typeid", "typename", "union", "unsigned", "using",
         "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq"
     };
@@ -43,21 +44,27 @@ std::string cpp_sh(std::string content) {
         "warning"
     };
 
-    boost::regex nums(R"(-?\d+(\.\d+)?)");
+    boost::regex nums(R"(0b[01]+|0x[A-Ha-h0-9]+|\d+(\.\d+)?([eE][+-]?\d+)?[fFdD]?)");
     boost::regex keywords("\\b(" + io::join(cpp_keywords, "|") + ")\\b");
-    boost::regex quotes(R"("(?:[^"\\]|\\.)*")");
+    boost::regex constants(R"(\b(true|false)\b)");
+    boost::regex attributes(R"(\[\[.*\]\])");
+    boost::regex quotes(R"("(?:[^"\\]|\\.)*"|'(?:[^"\\]|\\.)*')");
     boost::regex funcs(R"(\b[A-Za-z_][A-Za-z0-9_]*(?=\())");
+    boost::regex comments(R"(\/\/.*)");
     boost::regex namespaces(R"([A-Za-z0-9_]+(?=::))");
     boost::regex prep_directives("#(" + io::join(preprocessor_directives, "|") + ")");
 
     // Prepare vector of pairs (regex, color)
     std::vector<std::pair<boost::regex, std::string>> patterns = {
-        {nums, "\x1b[38;2;236;157;237m"},
-        {keywords, "\x1b[38;2;39;125;161m"},
-        {funcs, "\x1b[38;2;255;159;28m"},
-        {namespaces, "\x1b[38;2;179;182;10m"},
-        {prep_directives, "\x1b[38;2;165;56;96m"},
-        {quotes, "\x1b[38;2;103;148;54m"}
+        {nums, COLOR_NUMS},
+        {keywords, COLOR_KEYWORDS},
+        {constants, COLOR_CONSTANTS},
+        {funcs, COLOR_FUNCS},
+        {namespaces, COLOR_NAMESPACES},
+        {quotes, COLOR_QUOTES},
+        {comments, COLOR_COMMENTS},
+        {attributes, COLOR_ATTRS},
+        {prep_directives, COLOR_PREP_DIRECTIVES},
     };
 
     return shighlight(content, patterns);
