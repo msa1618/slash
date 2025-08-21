@@ -21,6 +21,7 @@
 #include <grp.h>
 #include "parser.h"
 #include "../cmd_highlighter.h"
+#include <algorithm>
 
 #pragma region helpers
 
@@ -368,7 +369,7 @@ void draw_prompt() {
   }
 }
 
-void redraw_prompt(std::string content) {
+void redraw_prompt(std::string content, int char_pos = -1) { // -1: not specified
   std::string home = getenv("HOME");
   auto j = get_json(get_prompt_config_path());
   if (j.empty()) return;
@@ -387,16 +388,24 @@ void redraw_prompt(std::string content) {
       io::print(move_cursor.str());
       io::print("\r" + get_prompt_segment() + content);
     }
+
+    if(char_pos != -1) {
+      for(int i = 0; i < (int)io::strip_ansi(content).size() - char_pos; i++) {
+        io::print("\x1b[1D");
+      }
+    }
   } else {
     io::print("\x1b[2K\r");
     draw_prompt();
   }
 }
 
+
 std::variant<std::string, int> read_input(int& history_index) {
   std::string buffer = "";
+  std::string backup_buffer = buffer; // To retrieve the command when browsing history if nothing was typed
   int char_pos = 0;
-  history_index = 0;
+  history_index = -1;
   char c = 0;
 
   while(true) {
@@ -412,19 +421,8 @@ std::variant<std::string, int> read_input(int& history_index) {
         char_pos--;
         buffer.erase(char_pos, 1);
 
-        // Move cursor one left
-        io::print("\b");
-
-        // Reprint the rest of the buffer from cursor
-        std::string tail = buffer.substr(char_pos);
-        io::print(tail);
-
-        // Add a space at the end to erase leftover char
-        io::print(" ");
-
-        for (size_t i = 0; i < tail.length() + 1; ++i) {
-          io::print("\b");
-        }
+        redraw_prompt(highl(buffer), char_pos);
+        backup_buffer = buffer;
       }
       continue;
     }
@@ -443,26 +441,30 @@ std::variant<std::string, int> read_input(int& history_index) {
 
       std::string seq_str(seq, n);
 
-      if (seq_str == "[A") { // Up arrow
-        const char *home = getenv("HOME");
-        auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
-        if (std::holds_alternative<int>(history)) {
-            std::string err = std::string("Failed to fetch history: ") + strerror(errno);
-            info::error(err, errno, "~/.slash/.slash_history");
-            return errno;
-        }
-        std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
-        if (commands.empty()) return buffer; // or break;
+      if (seq_str == "[A") {
+          const char *home = getenv("HOME");
+          auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
+          if (std::holds_alternative<int>(history)) {
+              std::string err = std::string("Failed to fetch history: ") + strerror(errno);
+              info::error(err, errno, "~/.slash/.slash_history");
+              return errno;
+          }
+          std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
+          while (!commands.empty() && commands.back().empty()) commands.pop_back();
+          if (commands.empty()) continue;
 
-        if (history_index < commands.size()) history_index++;
-        else return buffer;
+          if (history_index == -1) {
+              backup_buffer = buffer; // save what was typed
+              history_index = 0;       // jump into newest history
+          } else if (history_index + 1 < (int)commands.size()) {
+              history_index++;
+          }
 
-        std::string command = commands[commands.size() - history_index];
-        redraw_prompt(highl(command));
-        char_pos = (int)command.length();
-        buffer = command;
-
-    } else if (seq_str == "[B") { // Down arrow
+          std::string command = commands[commands.size() - 1 - history_index];
+          redraw_prompt(highl(command));
+          char_pos = (int)command.length();
+          buffer = command;
+} else if (seq_str == "[B") { // Down arrow
         const char *home = getenv("HOME");
         auto history = io::read_file(std::string(home) + "/.slash/.slash_history");
         if (std::holds_alternative<int>(history)) {
@@ -472,12 +474,16 @@ std::variant<std::string, int> read_input(int& history_index) {
         }
         std::vector<std::string> commands = io::split(std::get<std::string>(history), "\n");
         if (commands.empty()) continue;
+        while(commands.back() == "\n" || commands.back().empty()) commands.pop_back();
 
-        if (history_index < commands.size() && history_index > 0)
+        if (history_index < commands.size() && history_index > -1)
             history_index--;
         else redraw_prompt(highl(buffer));
 
-        std::string command = commands[commands.size() - history_index];
+        std::string command;
+        if(history_index > -1) {
+          command = commands[commands.size() - history_index];
+        } else command = backup_buffer;
         redraw_prompt(highl(command));
         char_pos = (int)command.length();
         buffer = command;
@@ -565,7 +571,6 @@ std::variant<std::string, int> read_input(int& history_index) {
             move_left << "\x1b[" << cursor_back << "D";
             io::print(move_left.str());
         }
-            
     } else {
         buffer.insert(buffer.begin() + char_pos, c);
         char_pos++;
@@ -579,6 +584,7 @@ std::variant<std::string, int> read_input(int& history_index) {
             io::print(move_left.str());
         }
     }
+    backup_buffer = buffer;
 }
   }
   return buffer;
