@@ -156,19 +156,19 @@ std::string message(int sig, bool core_dumped) {
 
 int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std::chrono::_V2::system_clock::time_point start) {
     struct sigaction in{};
-  in.sa_handler = handle_sigint;
-  sigemptyset(&in.sa_mask);
-  in.sa_flags = 0;
-  sigaction(SIGINT, &in, nullptr);
-    
-  struct sigaction stop{};
-  stop.sa_handler = handle_sigtstp;
-  sigemptyset(&stop.sa_mask);
-  stop.sa_flags = 0;
-  sigaction(SIGTSTP, &stop, nullptr);
+    in.sa_handler = handle_sigint;
+    sigemptyset(&in.sa_mask);
+    in.sa_flags = 0;
+    sigaction(SIGINT, &in, nullptr);
+      
+    struct sigaction stop{};
+    stop.sa_handler = handle_sigtstp;
+    sigemptyset(&stop.sa_mask);
+    stop.sa_flags = 0;
+    sigaction(SIGTSTP, &stop, nullptr);
 
-    int flags_fd = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, flags_fd | O_NONBLOCK);
+    //int flags_fd = fcntl(STDIN_FILENO, F_GETFL, 0);
+    //fcntl(STDIN_FILENO, F_SETFL, flags_fd | O_NONBLOCK);
 
     int status;
 
@@ -235,7 +235,7 @@ int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std:
 
 
 
-int execute(std::vector<std::string> parsed_args, std::string input, bool bg, RedirectInfo rinfo, ExecFlags info = {}) {
+int execute(std::vector<std::string> parsed_args, std::string input, bool bg, RedirectInfo rinfo = {}, ExecFlags info = {}) {
   if (parsed_args.empty()) return 0;
 
   std::string cmd = parsed_args[0];
@@ -263,6 +263,41 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     }
   }
 
+  if(!rinfo.stdout_enabled || !rinfo.stderr_enabled) { //not empty 
+    for (size_t i = 0; i < parsed_args.size(); i++) {
+        if (parsed_args[i] == ">" || parsed_args[i] == ">>" || parsed_args[i] == "1>" || parsed_args[i] == "1>>") {
+            rinfo.stdout_enabled = true;
+            rinfo.stdout_append = (parsed_args[i] == ">>" || parsed_args[i] == "1>>");
+            if (i + 1 < parsed_args.size()) rinfo.stdout_filepath = parsed_args[i + 1];
+            parsed_args.erase(parsed_args.begin() + i, parsed_args.begin() + i + 2);
+            i--;
+        }
+        else if (parsed_args[i] == "2>" || parsed_args[i] == "2>>") {
+            rinfo.stderr_enabled = true;
+            rinfo.stderr_append = (parsed_args[i] == "2>>");
+            if (i + 1 < parsed_args.size()) rinfo.stderr_filepath = parsed_args[i + 1];
+            parsed_args.erase(parsed_args.begin() + i, parsed_args.begin() + i + 2);
+            i--;
+        }
+        else if (parsed_args[i] == "2>&1") rinfo.err_to_out = true;
+        else if (parsed_args[i] == "1>&2") rinfo.out_to_err = true;
+        else if (parsed_args[i] == "0>&1") rinfo.in_to_out = true;
+        else if (parsed_args[i] == "0>&2") rinfo.in_to_err = true;
+        else if (parsed_args[i] == "2>&0") rinfo.err_to_in = true;
+        else if (parsed_args[i] == "1>&0") rinfo.out_to_in = true;
+    }
+  }
+
+  parsed_args.erase(
+        std::remove_if(parsed_args.begin(), parsed_args.end(),
+                        [](std::string s){
+                            return s == "2>&0" || s == "2>&1" || 
+                                  s == "1>&0" || s == "1>&2" || 
+                                  s == "0>&1" || s == "0>&2";
+                        }),
+          parsed_args.end()
+      );
+
   if(parsed_args[0] == "var") {
     parsed_args.erase(parsed_args.begin());
     
@@ -287,6 +322,38 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     return alias(parsed_args);
   }
 
+  if (parsed_args[0] == "exit") {
+        if(!JobCont::jobs.empty()) {
+            std::vector<JobCont::Job> non_completed_jobs;
+            for(auto& job : JobCont::jobs) {
+                if(job.jobstate != JobCont::State::Completed) non_completed_jobs.push_back(job);
+            }
+            if(!non_completed_jobs.empty()) {
+                std::string first = JobCont::jobs.size() == 1 ? "There is 1 uncompleted job." : "There are " + std::to_string(JobCont::jobs.size()) + " uncompleted jobs.";
+                info::warning(first + " Are you sure you want to exit slash? (Y/N): ");
+                char c;
+                ssize_t bytesRead = read(STDIN_FILENO, &c, 1);
+                if(bytesRead < 0) {
+                    info::error("Failed to read stdin: " + std::string(strerror(errno)));
+                    return -1;
+                }
+                io::print("\n");
+                if(tolower(c) != 'y') {
+                    return 0;
+                }
+            }
+        }
+         enable_canonical_mode();
+        exit(0);
+    }
+
+    if (parsed_args[0] == "cd") {
+        parsed_args.erase(parsed_args.begin());
+        return cd(parsed_args);
+    }
+
+    if(parsed_args[0] == "slash-greeting") return greet();
+
   pid_t pid = fork();
   if (pid == -1) {
     info::error(strerror(errno), errno);
@@ -306,28 +373,45 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     setpgid(0, 0);
     enable_canonical_mode();
 
-        //tcsetpgrp(STDIN_FILENO, 0);
-
     signal(SIGINT,  SIG_DFL);
-        signal(SIGQUIT, SIG_DFL);
-        signal(SIGTSTP, SIG_DFL);
-        signal(SIGTTIN, SIG_DFL);
-        signal(SIGTTOU, SIG_DFL);
-        signal(SIGCHLD, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTTIN, SIG_DFL);
+    signal(SIGTTOU, SIG_DFL);
+    signal(SIGCHLD, SIG_DFL);
 
-    if(rinfo.enabled) {
+    if(rinfo.stdout_enabled || rinfo.stderr_enabled) {
       int flags = O_WRONLY | O_CREAT; // Create if doesn't exist
-      if(rinfo.append) flags |= O_APPEND;
+      if(rinfo.stdout_append || rinfo.stderr_append) flags |= O_APPEND;
       else flags |= O_TRUNC;
 
-      int fd = open(rinfo.filepath.c_str(), flags, 0644);
-      if(fd < 0) {
-        info::error(std::string("Failed to open file: ") + strerror(errno));
-        return errno;
+      if(rinfo.stdout_enabled) {
+        int fd = open(rinfo.stdout_filepath.c_str(), flags, 0644);
+        if(fd < 0) {
+          info::error("Failed to open " + rinfo.stdout_filepath + ": " + std::string(strerror(errno)));
+          _exit(errno);
+        }
+
+        dup2(fd, STDOUT_FILENO);
       }
 
-      int stdfd = rinfo.stdout_ ? STDOUT_FILENO : STDERR_FILENO;
-      dup2(fd, stdfd);
+      if(rinfo.stderr_enabled) {
+        int fd = open(rinfo.stderr_filepath.c_str(), flags, 0644);
+        if(fd < 0) {
+          info::error("Failed to open " + rinfo.stderr_filepath + ": " + std::string(strerror(errno)));
+          _exit(errno);
+        }
+
+        dup2(fd, STDERR_FILENO);
+      }
+
+
+      if (rinfo.err_to_in)   dup2(STDERR_FILENO, STDIN_FILENO);
+      if (rinfo.err_to_out)  dup2(STDERR_FILENO, STDOUT_FILENO);
+      if (rinfo.out_to_in)   dup2(STDOUT_FILENO, STDIN_FILENO);
+      if (rinfo.out_to_err)  dup2(STDOUT_FILENO, STDERR_FILENO);
+      if (rinfo.in_to_out)   dup2(STDIN_FILENO, STDOUT_FILENO);
+      if (rinfo.in_to_err)   dup2(STDIN_FILENO, STDERR_FILENO);
     }
 
     if(time) {
@@ -363,7 +447,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     _exit(errno); // terminate child
   } else {
     signal(SIGTTOU, SIG_IGN);
-        setpgid(pid, pid);
+    setpgid(pid, pid);
 
     if (!bg) {
       return wait_foreground_job(pid, cmd, info_to_use, start);
@@ -393,69 +477,72 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
   }
 }
 
+
+int execute_pipeline(const std::string& raw_input) {
+    auto commands = io::split(raw_input, "|");
+    int n = commands.size();
+
+    int prev_fd = -1; // previous pipe read end
+    std::vector<pid_t> pids;
+
+    for (int i = 0; i < n; i++) {
+        std::string cmd_str = io::trim(commands[i]);
+        auto args = parse_arguments(cmd_str);
+
+        int pipe_fd[2] = {-1, -1};
+        if (i < n - 1) {
+            if (pipe(pipe_fd) == -1) {
+                info::error("Failed to create pipe: " + std::string(strerror(errno)), errno);
+                return -1;
+            }
+        }
+
+        pid_t pid = fork();
+        if (pid == -1) {
+            info::error("Fork failed: " + std::string(strerror(errno)), errno);
+            return -1;
+        }
+
+        if (pid == 0) { // child
+            if (prev_fd != -1) {
+                dup2(prev_fd, STDIN_FILENO);
+                close(prev_fd);
+            }
+            if (pipe_fd[1] != -1) {
+                dup2(pipe_fd[1], STDOUT_FILENO);
+                close(pipe_fd[0]);
+                close(pipe_fd[1]);
+            }
+
+            execute(args, cmd_str, io::vecContains(args, "&"), {});
+            _exit(0);
+        } else { // parent
+            if (prev_fd != -1) close(prev_fd);
+            if (pipe_fd[1] != -1) close(pipe_fd[1]);
+            prev_fd = pipe_fd[0];
+            pids.push_back(pid);
+        }
+    }
+
+    // Wait for all children
+    int exit_code = 0;
+    for (auto pid : pids) {
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status)) exit_code = WEXITSTATUS(status);
+    }
+
+    return exit_code;
+}
+
 int exec(std::vector<std::string> args, std::string raw_input) {
     raw_input = io::trim(raw_input);
     if (args.empty()) return 0;
-
-    if (args[0] == "exit") {
-        if(!JobCont::jobs.empty()) {
-            std::vector<JobCont::Job> non_completed_jobs;
-            for(auto& job : JobCont::jobs) {
-                if(job.jobstate != JobCont::State::Completed) non_completed_jobs.push_back(job);
-            }
-            if(!non_completed_jobs.empty()) {
-                std::string first = JobCont::jobs.size() == 1 ? "There is 1 uncompleted job." : "There are " + std::to_string(JobCont::jobs.size()) + " uncompleted jobs.";
-                info::warning(first + " Are you sure you want to exit slash? (Y/N): ");
-                char c;
-                ssize_t bytesRead = read(STDIN_FILENO, &c, 1);
-                if(bytesRead < 0) {
-                    info::error("Failed to read stdin: " + std::string(strerror(errno)));
-                    return -1;
-                }
-                io::print("\n");
-                if(tolower(c) != 'y') {
-                    return 0;
-                }
-            }
-        }
-         enable_canonical_mode();
-        exit(0);
-    }
-
-    if (args[0] == "cd") {
-        args.erase(args.begin());
-        return cd(args);
-    }
-
-    if(args[0] == "slash-greeting") return greet();
 
     bool bg = false;
     if (raw_input.ends_with("&")) {
         bg = true;
         args.pop_back();
-    }
-
-    // Handle redirection
-    RedirectInfo rinfo;
-    rinfo.enabled = false;
-    if (io::vecContains(args, ">") || io::vecContains(args, ">>") || io::vecContains(args, "2>") || io::vecContains(args, "2>>")) {
-        bool stdout_ = !io::vecContains(args, "2>") && !io::vecContains(args, "2>>");
-        rinfo.stdout_ = stdout_;
-        rinfo.append = io::vecContains(args, ">>") && io::vecContains(args, "2>>");
-        rinfo.enabled = true;
-
-        std::string redirect_op = rinfo.append ? (stdout_ ? ">>" : "2>>") : (stdout_ ? ">" : "2>");
-        std::vector<std::string> parts = io::split(raw_input, redirect_op);
-        if (parts.size() != 2) {
-            info::error("Invalid redirection syntax", 1);
-            return -1;
-        }
-
-        std::string command_part = io::trim(parts[0]);
-        rinfo.filepath = io::trim(parts[1]);
-        std::vector<std::string> new_args = parse_arguments(command_part);
-
-        return execute(new_args, command_part, bg, rinfo);
     }
 
     // Handle multiple commands separated by ";"
@@ -481,53 +568,15 @@ int exec(std::vector<std::string> args, std::string raw_input) {
     if (io::vecContains(args, "||")) {
         for (auto cmd : io::split(raw_input, "||")) {
             cmd = io::trim(cmd);
-            int res = exec(args, cmd);
+            int res = exec(parse_arguments(cmd), cmd);
             if (res == 0) break;
         }
         return 0;
     }
 
-    // Handle pipes 
-    /*
     if (io::vecContains(args, "|")) {
-        std::vector<std::vector<std::string>> commands;
-        for (auto& cmd : io::split(raw_input, "|")) {
-            cmd = io::trim(cmd);
-            commands.push_back(args);
-        }
-        return pipe_execute(commands);
+        return execute_pipeline(raw_input);
     }
-    */
 
-    return execute(args, raw_input, bg, rinfo);
-}
-
-
-int pipe_exec(std::vector<std::vector<std::string>> commands, std::string raw_input) {
-  int n = commands.size();
-  if(n == 0) return 0;
-
-  std::vector<int> pipefds(2 * (n - 1));
-  for(int i = 0; i < n - 1; ++i) pipe(&pipefds[2 * i]);
-
-  std::vector<pid_t> pids;
-  for(int i = 0; i < n; i++) {
-    pid_t pid = fork();
-    if(pid == 0) {
-      // redirect stdin
-      if(i != 0) dup2(pipefds[2 * ( i - 1)], STDIN_FILENO);
-      // redirect stdout
-      if(i != n-1) dup2(pipefds[2 * i + 1], STDOUT_FILENO);
-
-      exec(commands[i], raw_input);
-    } else pids.push_back(pid);
-  }
-
-  for(auto& fd : pipefds) close(fd);
-
-  int status = 0;
-    for(pid_t pid : pids) {
-        waitpid(pid, &status, 0);
-  }
-  return status;
+    return execute(args, raw_input, bg, {});
 }
