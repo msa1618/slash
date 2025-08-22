@@ -79,260 +79,281 @@ int get_terminal_width() {
 #pragma endregion
 
 std::string get_time_segment() {
-  std::string home = getenv("HOME");
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "<failed>";
+
+    auto showSeconds = get_bool(j, "showSeconds", "time").value_or(false);
+    auto use24hr = get_bool(j, "twentyfourhr", "time").value_or(false);
+    auto fg = get_int_array3(j, "foreground", "time").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j, "background", "time").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j, "bold", "time").value_or(false);
+
+    auto before = get_string(j, "before", "time").value_or("");
+    auto after = get_string(j, "after", "time").value_or("");
+    auto before_fg = get_int_array3(j, "before-fg", "time").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j, "before-bg", "time").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j, "after-fg", "time").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j, "after-bg", "time").value_or(std::array<int,3>{256,256,256});
+
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
+
+    time_t t = time(nullptr);
+    struct tm* now = localtime(&t);
+    char buffer[16];
+    if(showSeconds) strftime(buffer,sizeof(buffer),use24hr?"%H:%M:%S":"%I:%M:%S %p",now);
+    else strftime(buffer,sizeof(buffer),use24hr?"%H:%M":"%I:%M %p",now);
+
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << buffer
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
+
+    return res.str();
+}
+
+std::string get_beforeall_segment() {
   auto j = get_json(get_prompt_config_path());
-  if(j.empty()) {
-    return "<failed>";
-  }
-  auto showSeconds = get_bool(j, "showSeconds", "time");
-  auto use24hr = get_bool(j, "twentyfourhr", "time");
-  auto foreground = get_int_array3(j, "foreground", "time");
-  auto background = get_int_array3(j, "background", "time");
-  auto bold = get_bool(j, "bold", "time").value_or(false);
+  if(j.empty()) return "";
+  if(!get_bool(j, "enabled","before-all").value_or(false)) return "";
 
-  auto after = get_string(j, "after", "time");
-  auto before = get_string(j, "before", "time");
-
-  std::string ansi;
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) {
-    ansi += rgb_to_ansi(*foreground);
-  }
-  if (background && *background != std::array<int, 3>{256, 256, 256}) {
-    ansi += rgb_to_ansi(*background, true);
-  }
-  if (bold) ansi = "\x1b[1m" + ansi;
-
-  time_t t = time(nullptr);
-  struct tm* now = localtime(&t);
-  char buffer[16];
-
-  if (showSeconds) {
-    if (use24hr)
-      strftime(buffer, sizeof(buffer), "%H:%M:%S", now);
-    else
-      strftime(buffer, sizeof(buffer), "%I:%M:%S %p", now);
-  } else {
-    if (use24hr)
-      strftime(buffer, sizeof(buffer), "%H:%M", now);
-    else
-      strftime(buffer, sizeof(buffer), "%I:%M %p", now);
-  }
-
-  std::stringstream res;
-  res << ansi << *before << std::string(buffer) << *after << reset;
-
-  return res.str();
+  auto characters = get_string(j, "chars", "before-all").value_or("");
+  return characters;
 }
 
 std::string get_user_segment() {
-    std::string home = getenv("HOME");
     auto j = get_json(get_prompt_config_path());
-    if (j.empty()) return "";
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","user").value_or(false)) return "";
 
-    auto enabled = get_bool(j, "enabled", "user");
-    if (!enabled || !*enabled) return "";
-
-    std::string user = getenv("USER") ?: "";
-    auto after = get_string(j, "after", "user").value_or("");
-    auto before = get_string(j, "before", "user").value_or("");
-    auto foreground = get_int_array3(j, "foreground", "user");
-    auto background = get_int_array3(j, "background", "user");
-    auto bold = get_bool(j, "bold", "user").value_or(false);
+    std::string user = getenv("USER") ? getenv("USER") : "";
+    auto before = get_string(j,"before","user").value_or("");
+    auto after = get_string(j,"after","user").value_or("");
+    auto fg = get_int_array3(j,"foreground","user").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","user").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","user").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","user").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","user").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","user").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","user").value_or(std::array<int,3>{256,256,256});
 
     std::string ansi;
-    if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) {
-        ansi += rgb_to_ansi(*foreground);
-    }
-    if (background && *background != std::array<int, 3>{256, 256, 256}) {
-        ansi += rgb_to_ansi(*background, true); // true for background
-    }
-    if (bold) ansi = "\x1b[1m" + ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-    return ansi + before + user + after + reset;
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << user
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
+
+    return res.str();
 }
 
-
 std::string get_group_segment() {
-  std::string home = getenv("HOME");
-  auto j = get_json(get_prompt_config_path());
-  if (j.empty()) return "";
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","group").value_or(false)) return "";
 
-  auto enabled = get_bool(j, "enabled", "group");
-  if (!enabled || !*enabled) return "";
+    gid_t gid = getgid();
+    struct group* grp = getgrgid(gid);
+    std::string group = grp ? grp->gr_name : "";
 
-  gid_t gid = getgid();
-  struct group *grp = getgrgid(gid);
-  std::string group = grp ? grp->gr_name : "";
+    auto before = get_string(j,"before","group").value_or("");
+    auto after = get_string(j,"after","group").value_or("");
+    auto fg = get_int_array3(j,"foreground","group").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","group").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","group").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","group").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","group").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","group").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","group").value_or(std::array<int,3>{256,256,256});
 
-  auto after = get_string(j, "after", "group").value_or("");
-  auto before = get_string(j, "before", "group").value_or("");
-  auto foreground = get_int_array3(j, "foreground", "group");
-  auto background = get_int_array3(j, "background", "group");
-  auto bold = get_bool(j, "bold", "group").value_or(false);
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-  std::string ansi;
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*foreground);
-  if (background && *background != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*background, true);
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << group
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
 
-  if (bold) ansi = "\x1b[1m" + ansi;
-
-  return ansi + before + group + after + reset;
+    return res.str();
 }
 
 std::string get_hostname_segment() {
-  std::string home = getenv("HOME");
-  auto j = get_json(get_prompt_config_path());
-  if (j.empty()) return "";
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","hostname").value_or(false)) return "";
 
-  auto enabled = get_bool(j, "enabled", "hostname");
-  if (!enabled || !*enabled) return "";
+    char hostname[256];
+    gethostname(hostname,sizeof(hostname));
 
-  char hostname[256];
-  gethostname(hostname, sizeof(hostname));
+    auto before = get_string(j,"before","hostname").value_or("");
+    auto after = get_string(j,"after","hostname").value_or("");
+    auto fg = get_int_array3(j,"foreground","hostname").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","hostname").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","hostname").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","hostname").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","hostname").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","hostname").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","hostname").value_or(std::array<int,3>{256,256,256});
 
-  auto after = get_string(j, "after", "hostname").value_or("");
-  auto before = get_string(j, "before", "hostname").value_or("");
-  auto foreground = get_int_array3(j, "foreground", "hostname");
-  auto background = get_int_array3(j, "background", "hostname");
-  auto bold = get_bool(j, "bold", "hostname").value_or(false);
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-  std::string ansi;
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*foreground);
-  if (background && *background != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*background, true);
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << hostname
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
 
-  if (bold) ansi = "\x1b[1m" + ansi;
-
-  return ansi + before + std::string(hostname) + after + reset;
+    return res.str();
 }
 
 std::string get_ssh_segment() {
-  std::string home = getenv("HOME");
-  auto j = get_json(get_prompt_config_path());
-  if (j.empty()) return "";
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","ssh").value_or(false)) return "";
+    if(!is_ssh_server()) return "";
 
-  auto enabled = get_bool(j, "enabled", "ssh");
-  if (!enabled || !*enabled) return "";
+    auto text = get_string(j,"text","ssh").value_or("ssh");
+    auto before = get_string(j,"before","ssh").value_or("");
+    auto after = get_string(j,"after","ssh").value_or("");
+    auto fg = get_int_array3(j,"foreground","ssh").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","ssh").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","ssh").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","ssh").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","ssh").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","ssh").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","ssh").value_or(std::array<int,3>{256,256,256});
 
-  if (!is_ssh_server()) return "";
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-  auto after = get_string(j, "after", "ssh").value_or("");
-  auto before = get_string(j, "before", "ssh").value_or("");
-  auto text = get_string(j, "text", "ssh").value_or("ssh");
-  auto foreground = get_int_array3(j, "foreground", "ssh");
-  auto background = get_int_array3(j, "background", "ssh");
-  auto bold = get_bool(j, "bold", "ssh").value_or(false);
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << text
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
 
-  std::string ansi;
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*foreground);
-  if (background && *background != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*background, true);
-
-  if (bold) ansi = "\x1b[1m" + ansi;
-
-  return ansi + before + text + after + reset;
+    return res.str();
 }
 
 std::string get_git_segment() {
-  std::string home = getenv("HOME");
-  auto j = get_json(get_prompt_config_path());
-  if (j.empty()) return "";
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","git-branch").value_or(false)) return "";
 
-  auto enabled = get_bool(j, "enabled", "git-branch");
-  if (!enabled || !*enabled) return "";
+    char cwd_buffer[512];
+    std::string cwd = getcwd(cwd_buffer,sizeof(cwd_buffer));
+    GitRepo repo(cwd);
+    std::string branch = repo.get_branch_name();
+    if(branch.empty()) return "";
 
-  char cwd_buffer[512];
-  std::string cwd = getcwd(cwd_buffer, sizeof(cwd_buffer));
-  GitRepo repo(cwd);
-  std::string branch = repo.get_branch_name();
-  if (branch.empty()) return "";
+    auto before = get_string(j,"before","git-branch").value_or("");
+    auto after = get_string(j,"after","git-branch").value_or("");
+    auto fg = get_int_array3(j,"foreground","git-branch").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","git-branch").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","git-branch").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","git-branch").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","git-branch").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","git-branch").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","git-branch").value_or(std::array<int,3>{256,256,256});
 
-  auto after = get_string(j, "after", "git-branch").value_or("");
-  auto before = get_string(j, "before", "git-branch").value_or("");
-  auto foreground = get_int_array3(j, "foreground", "git-branch");
-  auto background = get_int_array3(j, "background", "git-branch");
-  auto bold = get_bool(j, "bold", "git-branch").value_or(false);
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-  std::string ansi;
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*foreground);
-  if (background && *background != std::array<int, 3>{256, 256, 256})
-    ansi += rgb_to_ansi(*background, true);
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << branch << reset
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
 
-  if (bold) ansi = "\x1b[1m" + ansi;
-
-  return ansi + before + branch + after + reset;
+    return res.str();
 }
 
 std::string get_cwd_segment() {
-  std::string home = getenv("HOME");
-  auto j = get_json(get_prompt_config_path());
-  if (j.empty()) return "";
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","currentdir").value_or(false)) return "";
 
-  auto enabled = get_bool(j, "enabled", "currentdir");
-  if (!enabled || !*enabled) return "";
+    char buffer[512];
+    std::string cwd = getcwd(buffer,sizeof(buffer));
+    std::string home_str = getenv("HOME");
+    if(cwd.starts_with(home_str)) cwd.replace(0,home_str.size(),"~");
 
-  auto foreground = get_int_array3(j, "foreground", "currentdir");
-  auto background = get_int_array3(j, "background", "currentdir");
-  auto before = get_string(j, "before", "currentdir").value_or("");
-  auto after = get_string(j, "after", "currentdir").value_or("");
-  auto bold = get_bool(j, "bold", "currentdir").value_or(false);
+    auto before = get_string(j,"before","currentdir").value_or("");
+    auto after = get_string(j,"after","currentdir").value_or("");
+    auto fg = get_int_array3(j,"foreground","currentdir").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","currentdir").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","currentdir").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","currentdir").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","currentdir").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","currentdir").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","currentdir").value_or(std::array<int,3>{256,256,256});
 
-  char buffer[512];
-  std::string cwd = getcwd(buffer, sizeof(buffer));
-  std::string home_str = getenv("HOME");
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-  if (cwd.starts_with(home_str))
-    cwd.replace(0, home_str.size(), "~");
+    std::stringstream res;
+    res << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << cwd << reset
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
 
-  std::string ansi;
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) ansi += rgb_to_ansi(*foreground);
-  if (background && *background != std::array<int, 3>{256, 256, 256}) ansi += rgb_to_ansi(*background, true);
-
-  if (bold) ansi = "\x1b[1m" + ansi;
-
-  return ansi + before + cwd + after + reset;
+    return res.str();
 }
 
 std::string get_prompt_segment() {
-  std::string home = getenv("HOME");
-  auto j = get_json(get_prompt_config_path());
-  if (j.empty()) return "";
+    auto j = get_json(get_prompt_config_path());
+    if(j.empty()) return "";
+    if(!get_bool(j,"enabled","prompt").value_or(false)) return "";
 
-  auto enabled = get_bool(j, "enabled", "prompt");
-  if (!enabled || !*enabled) return "";
+    auto before = get_string(j,"before","prompt").value_or("");
+    auto after = get_string(j,"after","prompt").value_or("");
+    auto fg = get_int_array3(j,"foreground","prompt").value_or(std::array<int,3>{256,256,256});
+    auto bg = get_int_array3(j,"background","prompt").value_or(std::array<int,3>{256,256,256});
+    auto bold = get_bool(j,"bold","prompt").value_or(false);
+    auto newlineBefore = get_bool(j,"newlineBefore","prompt").value_or(false);
+    auto newlineAfter = get_bool(j,"newlineAfter","prompt").value_or(false);
+    auto character = get_string(j,"character","prompt").value_or(">");
 
-  auto foreground = get_int_array3(j, "foreground", "prompt");
-  auto background = get_int_array3(j, "background", "prompt");
-  auto after = get_string(j, "after", "prompt").value_or("");
-  auto before = get_string(j, "before", "prompt").value_or("");
-  auto character = get_string(j, "character", "prompt").value_or(">");
-  auto bold = get_bool(j, "bold", "prompt").value_or(false);
-  auto newlineBefore = get_bool(j, "newlineBefore", "prompt").value_or(false);
-  auto newlineAfter = get_bool(j, "newlineAfter", "prompt").value_or(false);
+    auto before_fg = get_int_array3(j,"before-fg","prompt").value_or(std::array<int,3>{256,256,256});
+    auto before_bg = get_int_array3(j,"before-bg","prompt").value_or(std::array<int,3>{256,256,256});
+    auto after_fg = get_int_array3(j,"after-fg","prompt").value_or(std::array<int,3>{256,256,256});
+    auto after_bg = get_int_array3(j,"after-bg","prompt").value_or(std::array<int,3>{256,256,256});
 
-  std::string ansi = "";
-  if (foreground && *foreground != std::array<int, 3>{256, 256, 256}) {
-    ansi += rgb_to_ansi(*foreground);
-  }
-  if(background && *background != std::array<int, 3>{256, 256, 256}) {
-    ansi += rgb_to_ansi(*background, true);
-  }
-  if (bold) ansi = "\x1b[1m" + ansi;
+    std::string ansi;
+    if(fg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(fg);
+    if(bg != std::array<int,3>{256,256,256}) ansi += rgb_to_ansi(bg,true);
+    if(bold) ansi = "\x1b[1m" + ansi;
 
-  std::stringstream out;
+    std::stringstream out;
+    if(newlineBefore) out << "\n" << "\x1b[2K";
+    out << rgb_to_ansi(before_fg) << rgb_to_ansi(before_bg,true) << before
+        << ansi << character
+        << rgb_to_ansi(after_fg) << rgb_to_ansi(after_bg,true) << after
+        << reset;
+    if(newlineAfter) out << "\n";
 
-  if (newlineBefore) out << "\n" << "\x1b[2K";
-  out << ansi << before << character << after << reset;
-  if (newlineAfter) out << "\n";
-
-
-  return out.str();
+    return out.str();
 }
+
 
 void draw_prompt() {
   std::string home = getenv("HOME");
@@ -349,6 +370,7 @@ void draw_prompt() {
     }
   }
 
+  if (get_bool(j, "enabled", "before-all")) prompt << get_beforeall_segment();
   if (get_bool(j, "enabled", "user")) prompt << get_user_segment();
   if (get_bool(j, "enabled", "group")) prompt << get_group_segment();
   if (get_bool(j, "enabled", "hostname")) prompt << get_hostname_segment();
@@ -410,6 +432,17 @@ std::variant<std::string, int> read_input(int& history_index) {
 
   while(true) {
     if(read(STDIN_FILENO, &c, 1) != 1) continue;
+
+    if(c == 3) { // Ctrl+C, discard input
+      io::print(red + "^C" + reset + "\n");
+      return "";
+    }
+
+    if(c == 12) { // Ctrl+L
+      io::print("\033[H\033[2J");
+      draw_prompt();
+      io::print(highl(buffer));
+    }
 
     if(c == '\n' || c == '\r') {
       io::print("\n");
