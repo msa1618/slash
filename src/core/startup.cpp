@@ -93,7 +93,7 @@ void execute_startup_commands() {
 
     if(command.empty()) continue;
     std::vector<std::string> tokens = parse_arguments(command);
-    exec(tokens, command, false);
+    exec(tokens, command);
   }
 }
 
