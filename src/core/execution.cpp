@@ -18,6 +18,7 @@
 #include "../builtin-cmds/slash-greeting.h"
 #include "../builtin-cmds/help.h"
 #include "../builtin-cmds/jobs.h"
+#include "cnf.h"
 #include <algorithm>
 
 #pragma region helpers
@@ -471,8 +472,11 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     }
 
     // If execvp or execv fail
-    std::string err = std::string("Failed to execute \"" + parsed_args[0] + "\": ") + strerror(errno);
-    info::error(err, errno);
+    if(errno == ENOENT) {
+      io::print_err(cnf(parsed_args[0]));
+    } else {
+      info::error("Failed to execute \"" + parsed_args[0] + "\": " + std::string(strerror(errno)));
+    }
     _exit(errno); // terminate child
   } else {
     signal(SIGTTOU, SIG_IGN);
