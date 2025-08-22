@@ -15,7 +15,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBGIT2 REQUIRED libgit2)
 
 find_package(nlohmann_json REQUIRED)
-find_package(ftxui REQUIRED)
 find_package(Boost REQUIRED COMPONENTS regex)
 
 add_executable(slash
