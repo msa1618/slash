@@ -18,6 +18,7 @@
 #include "../builtin-cmds/slash-greeting.h"
 #include "../builtin-cmds/help.h"
 #include "../builtin-cmds/jobs.h"
+#include <algorithm>
 
 #pragma region helpers
 
@@ -263,7 +264,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     }
   }
 
-  if(!rinfo.stdout_enabled || !rinfo.stderr_enabled) { //not empty 
+  if(!rinfo.stdout_enabled || !rinfo.stderr_enabled) {
     for (size_t i = 0; i < parsed_args.size(); i++) {
         if (parsed_args[i] == ">" || parsed_args[i] == ">>" || parsed_args[i] == "1>" || parsed_args[i] == "1>>") {
             rinfo.stdout_enabled = true;
@@ -286,6 +287,22 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
         else if (parsed_args[i] == "2>&0") rinfo.err_to_in = true;
         else if (parsed_args[i] == "1>&0") rinfo.out_to_in = true;
     }
+  }
+
+  std::string input_redfile;
+  if(io::vecContains(parsed_args, "<")) {
+    auto it = std::find_if(parsed_args.begin(), parsed_args.end(), [](std::string s) {
+      return s == "<";
+    });
+    int i = std::distance(parsed_args.begin(), it);
+
+    if(i >= parsed_args.size()) {
+      info::error("Unspecified input redirection file");
+      return -1;
+    }
+
+    input_redfile = parsed_args[i + 1];
+    parsed_args.erase(parsed_args.begin() + i, parsed_args.begin() + i + 2);
   }
 
   parsed_args.erase(
@@ -357,7 +374,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
   pid_t pid = fork();
   if (pid == -1) {
     info::error(strerror(errno), errno);
-    return -1;
+    return errno;
   }
 
   auto start = std::chrono::high_resolution_clock::now();
@@ -412,6 +429,18 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
       if (rinfo.out_to_err)  dup2(STDOUT_FILENO, STDERR_FILENO);
       if (rinfo.in_to_out)   dup2(STDIN_FILENO, STDOUT_FILENO);
       if (rinfo.in_to_err)   dup2(STDIN_FILENO, STDERR_FILENO);
+    }
+
+    if(!input_redfile.empty()) {
+      int fd = open(input_redfile.c_str(), O_RDONLY);
+      if(fd < 0) {
+        info::error("Failed to open \"" + input_redfile + "\": " + std::string(strerror(errno)));
+        return errno;
+      }
+      if(dup2(fd, STDIN_FILENO) < 0) {
+        info::error("Failed to redirect file to stdin: " + std::string(strerror(errno)));
+        return errno;
+      }
     }
 
     if(time) {
