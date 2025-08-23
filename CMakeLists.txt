@@ -24,6 +24,8 @@ add_executable(slash
         src/builtin-cmds/help.h
         src/builtin-cmds/help.cpp
         src/builtin-cmds/jobs.h
+        src/core/cnf.h
+        src/core/cnf.cpp
         src/builtin-cmds/jobs.cpp
         src/builtin-cmds/slash-greeting.h
         src/builtin-cmds/slash-greeting.cpp

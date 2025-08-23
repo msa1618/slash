@@ -12,6 +12,7 @@
 
 const std::string reset     = "\x1b[0m";
 const std::string bold      = "\x1b[1m";
+const std::string italic    = "\x1b[3m";
 const std::string underline = "\x1b[4m";
 const std::string strikethr = "\x1b[9m";
 

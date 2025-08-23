@@ -56,6 +56,20 @@ std::optional<std::string> get_string(const nlohmann::json& json, const std::str
     }
 }
 
+
+std::optional<int> get_int(const nlohmann::json& json, const std::string& property, const std::string& object) {
+     if (object.empty()) {
+        if (json.contains(property) && json[property].is_number()) {
+            return json[property].get<int>();
+        }
+        return std::nullopt;
+    } else {
+        if (!json.contains(object) || !json[object].contains(property) || !json[object][property].is_number()) {
+            return std::nullopt;
+        }
+        return json[object][property].get<int>();
+    }
+}
 std::optional<std::array<int, 3>> get_int_array3(const nlohmann::json& json, const std::string& property, const std::string& object) {
     nlohmann::json target;
 
