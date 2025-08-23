@@ -2,14 +2,23 @@
 ![slash unconfirmed logo](unconfirmed_logo.svg)  
 *Unconfirmed slash logo*<br><br>
 
-To the 27 people who saw this repository, I DIDN'T EVEN KNOW PEOPLE WERE AWARE OF THIS
-
 slash is a project that aims to create a customizable, vibrant, and modern shell, along with a suite of utilities designed for educational, practical, and evcen creative use cases!
+
 # Slash is in Beta!
 All the basics of a shell were added, and finished on 17 June 2025. Slash is not in Alpha anymore. This means:
 1. Slash is almost eligible to become a legitimate shell
 2. It's no longer plagued with errors
 3. You can (almost) use Slash like any other shell
+
+## Features
+- Easily customizable syntax highlighting and prompt with JSON, for a terminal that feels like home
+- A rich suite of feature-rich utilties built in (`slash-utils`)
+- Helpful, short, and visually pleasing help messages
+- 
+
+# Known bugs
+- Flickering prompts and no multiline support yet (only for one-line prompts)
+- "Illegal instruction" in WSL systems (i have no idea why. If you know the solution please help out)
 
 ## The Slash Philosophy
 Every Slash utility shas to follow a unified philosophy:
@@ -28,7 +37,6 @@ Installing slash is pretty straightforward if you have the dependencies:
 - libgit2
 - boost::regex
 - OpenSSL
-- FTXUI
 - nlohmann::json
 
 ## Unix-based systems
@@ -37,13 +45,26 @@ Installing slash is pretty straightforward if you have the dependencies:
    ```g++ install_slash.cpp -o install_slash```
 3. Run the installer with:
    ```./install_slash```
-   If the installation fails, try running with `sudo`
+   If the installer fails, most likely in moving the slash binary to /usr/local/bin, rerun the installer with elevated privileges (`sudo`)
 4. Follow the instructions and slash should be installed!  
 
 After installation, you may delete the slash source code and the installer safely.
 
 ## Windows
 slash does not support Windows directly. You have to use the Windows Subsystem for Linux. Maybe someday though..
+
+# Uninstallation
+To uninstall slash, simply delete the directory `~/.slash` and also `/usr/bin/slash`
+
+# Screenshots
+
+## slash-utils
+<img src="screenshots/ls.png" alt="Image 1" width="600"/>
+<img src="screenshots/csv.png" alt="Image 1" width="600"/> <br>
+<img src="screenshots/ansi.png" alt="Image 1" width="600"/>
+<img src="screenshots/acart.png" alt="Image 1" width="600"/> <br>
+<img src="screenshots/dump.png" alt="Image 1" width="600"/> <br>
+<img src="screenshots/listen.png" alt="Image 1" width="600"/>
 
 # A missing feature?
 Just open an issue. If I really like it, I'll implement it within a day or two.
