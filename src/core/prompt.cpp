@@ -102,6 +102,11 @@ SegmentStyle get_segment_style(std::string style, bool first, bool last) {
   }
 }
 
+// Declared here to solve circular dependency
+std::string get_jobs_segment(bool only_want_unused_or_not = false);
+std::string get_ssh_segment(bool only_want_unused_or_not = false);
+std::string get_git_segment(bool only_want_unused_or_not = false);
+
 std::vector<std::string> get_order() {
   std::vector<std::string> default_order = {
       "before-all", "time", "user", "group", "hostname",
@@ -123,6 +128,26 @@ std::vector<std::string> get_order() {
     order.erase(std::remove_if(order.begin(), order.end(), [j](std::string s){
       return !get_bool(j, "enabled", s).value_or(false);
     }));
+
+    for(auto& seg : order) {
+      if(seg == "git-branch" && get_git_segment(true) == "<UNUSED>") {
+        order.erase(std::remove_if(order.begin(), order.end(), [](std::string& s) {
+          return s == "git-branch";
+        }));
+      }
+
+      if(seg == "ssh" && get_ssh_segment(true) == "<UNUSED>") {
+        order.erase(std::remove_if(order.begin(), order.end(), [](std::string& s) {
+          return s == "ssh";
+        }));
+      }
+
+      if(seg == "jobs" && get_jobs_segment(true) == "<UNUSED>") {
+        order.erase(std::remove_if(order.begin(), order.end(), [](std::string& s) {
+          return s == "jobs";
+        }));
+      }
+    }
 
     return order;
 }
@@ -169,17 +194,12 @@ std::string print_segment(std::string seg_name, std::string content, std::string
        << bg_as_fg;
     if(!next_segment_unused) ss << rgb_to_ansi(next_seg_bg, true);
     ss << style.end << reset;
-} else {
-    ss << before << rgb_to_ansi(fg) << rgb_to_ansi(bg, true) << (bold ? "\x1b[1m" : "") << content;
-}
+  } else {
+      ss << before << rgb_to_ansi(fg) << rgb_to_ansi(bg, true) << (bold ? "\x1b[1m" : "") << nerd_icon << content << after << reset;
+  }
 
   return ss.str();
 }
-
-// Declare here to solve circular dependency with is_next_segment_unused() and the three functions
-std::string get_jobs_segment();
-std::string get_ssh_segment();
-std::string get_git_segment();
 
 bool is_next_segment_unused(std::string seg_name) {
     auto order = get_order();
@@ -197,7 +217,7 @@ bool is_next_segment_unused(std::string seg_name) {
 }
 
 
-std::string get_jobs_segment() {
+std::string get_jobs_segment(bool only_want_unused_or_not) {
     int uncompleted_jobs = [&](){
         int res = 0;
         for(auto& job : JobCont::jobs) if(job.jobstate != JobCont::State::Completed) ++res;
@@ -207,6 +227,7 @@ std::string get_jobs_segment() {
 
     auto j = get_json(get_prompt_config_path());
     if(j.empty() || !get_bool(j,"enabled","jobs").value_or(false)) return "";
+    if(only_want_unused_or_not) return "<SUCCESS>";
 
     auto segmentstyle = get_string(j,"segment-style").value_or("rectangle");
     auto first = get_order()[0] == "jobs";
@@ -225,9 +246,11 @@ std::string get_jobs_segment() {
 }
 
 
-std::string get_ssh_segment() {
+std::string get_ssh_segment(bool only_want_unused_or_not) {
     auto j = get_json(get_prompt_config_path());
     if(j.empty() || !get_bool(j,"enabled","ssh").value_or(false) || !is_ssh_server()) return "<UNUSED>";
+    
+    if(only_want_unused_or_not) return "<SUCCESS>";
 
     auto text = get_string(j,"text","ssh").value_or("ssh");
 
@@ -247,9 +270,10 @@ std::string get_ssh_segment() {
     return print_segment("ssh", text, after, before, bold, nerd_i, fg, bg, sstyle, segmentstyle, next_unused);
 }
 
-std::string get_git_segment() {
+std::string get_git_segment(bool only_want_unused_or_not) {
     auto j = get_json(get_prompt_config_path());
     if(j.empty() || !get_bool(j,"enabled","git-branch").value_or(false)) return "";
+    if(only_want_unused_or_not) return "<SUCCESS>";
 
     char cwd_buffer[512];
     std::string cwd = getcwd(cwd_buffer,sizeof(cwd_buffer));
