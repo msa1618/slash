@@ -243,8 +243,15 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
   std::string cmd = parsed_args[0];
 
   bool using_path = false;
-  const char* home_env = getenv("HOME");
-  std::string home_dir = home_env ? home_env : "";
+  std::string home = getenv("HOME");
+  std::string slashutil_path = home + "/.slash/slash-utils/" + parsed_args[0];
+
+  // For the condition with ~, .., and /, trying to access a slash-util with these will disrupt it
+  if(access(slashutil_path.c_str(), X_OK) == 0 && 
+   parsed_args[0] != "~" && parsed_args[0] != "/" && parsed_args[0] != "..") {
+       parsed_args[0] = slashutil_path;
+       using_path = true;
+}
 
   bool stdout_only   = io::vecContains(parsed_args, "@o");
   bool stderr_only   = io::vecContains(parsed_args, "@O");
@@ -330,6 +337,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
   if(parsed_args[0] == "help") {
     if(parsed_args.size() > 1) {
       if(parsed_args[1] == "--slash-utils") return slash_utils_help();
+      else if(parsed_args[1] == "--keys") return help_keys();
       else info::error("Invalid help argument.\n");
     }
     return help();
@@ -368,6 +376,10 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     if (parsed_args[0] == "cd") {
         parsed_args.erase(parsed_args.begin());
         return cd(parsed_args);
+    }
+
+    if(parsed_args[0] == "~" || parsed_args[0] == ".." || parsed_args[0] == "/") {
+      return cd({parsed_args[0]});
     }
 
     if(parsed_args[0] == "slash-greeting") return greet();
@@ -466,9 +478,9 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     }
 
     if(using_path) {
-      execv(argv[0], argv.data());
+        execv(slashutil_path.c_str(), argv.data());
     } else {
-      execvp(argv[0], argv.data());
+        execvp(argv[0], argv.data());
     }
 
     // If execvp or execv fail

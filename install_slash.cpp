@@ -50,15 +50,19 @@ int create_file(std::string name, bool dir) {
   return 0;
 }
 
-int overwrite_file(std::string path, std::string content) {
-  int fd = open(path.c_str(), O_WRONLY);
-  if(fd < 0) { close(fd); return errno; }
+int overwrite_file(const std::string& path, const std::string& content) {
+    int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+      error(strerror(errno));
+      return errno;
+    }
 
-  ssize_t written = write(fd, content.c_str(), content.size());
-  if(written < 0) {close(fd); return errno; };
+    ssize_t written = write(fd, content.c_str(), content.size());
+    if (written < 0) { close(fd); return errno; }
+    if ((size_t)written < content.size()) { close(fd); return EIO; }
 
-  if(written < content.size()) { close(fd); return EIO; }
-  return 0;
+    close(fd);
+    return 0;
 }
 
 std::vector<std::string> split(const std::string& s, std::string delimiter) {
@@ -114,65 +118,195 @@ std::string get_settings() {
 
 std::string get_default_json_content() {
   nlohmann::json j = {
-        {"time", {
-            {"enabled", true},
-            {"before", "["},
-            {"after", "] "},
-            {"showSeconds", false},
-            {"twentyfourhr", false},
-            {"alignRight", true},
-            {"bold", true},
-            {"foreground", {128, 128, 128}}
-        }},
-        {"user", {
-            {"enabled", false},
-            {"foreground", {173, 216, 230}},
-            {"after", " "},
-            {"bold", false}
-        }},
-        {"group", {
-            {"enabled", false},
-            {"foreground", {100, 149, 237}},
-            {"after", ""},
-            {"bold", false}
-        }},
-        {"hostname", {
-            {"enabled", false},
-            {"foreground", {144, 238, 144}},
-            {"after", " "},
-            {"bold", false}
-        }},
-        {"git-branch", {
-            {"enabled", true},
-            {"foreground", {255, 165, 0}},
-            {"after", " "},
-            {"bold", ""}
-        }},
-        {"currentdir", {
-            {"enabled", true},
-            {"foreground", {255, 255, 0}},
-            {"after", " "},
-            {"bold", false}
-        }},
-        {"ssh", {
-            {"enabled", true},
-            {"foreground", {255, 105, 180}},
-            {"after", " "},
-            {"text", "ssh"},
-            {"bold", false}
-        }},
-        {"prompt", {
-            {"enabled", true},
-            {"foreground", {173, 181, 189}},
-            {"after", " "},
-            {"newlineBefore", true},
-            {"newlineAfter", false},
-            {"character", "$"},
-            {"bold", false}
-        }}
-    };
+    {"segment-style", "arrow"},
+    {"padding", {
+        {"enabled", true},
+        {"spaces", 1}
+    }},
+    {"before-all", {
+        {"enabled", true},
+        {"chars", "┌─"}
+    }},
+    {"time", {
+        {"enabled", false},
+        {"before", ""},
+        {"after", ""},
+        {"showSeconds", false},
+        {"twentyfourhr", false},
+        {"alignRight", true},
+        {"bold", true},
+        {"nerd-icon", ""},
+        {"background", {128, 128, 128}}
+    }},
+    {"user", {
+        {"enabled", true},
+        {"before", ""},
+        {"background", {125, 125, 213}},
+        {"after", ""},
+        {"nerd-icon", ""},
+        {"bold", false}
+    }},
+    {"group", {
+        {"enabled", false},
+        {"before", ""},
+        {"foreground", {0, 0, 0}},
+        {"background", {129, 212, 9}},
+        {"after", ""},
+        {"bold", false}
+    }},
+    {"hostname", {
+        {"enabled", false},
+        {"before", ""},
+        {"background", {144, 238, 144}},
+        {"foreground", {65, 65, 65}},
+        {"after", " "},
+        {"nerd-icon", ""},
+        {"bold", false}
+    }},
+    {"git-branch", {
+        {"enabled", true},
+        {"before", ""},
+        {"foreground", {65, 65, 65}},
+        {"background", {255, 165, 0}},
+        {"after", ""},
+        {"nerd-icon", ""},
+        {"bold", false}
+    }},
+    {"currentdir", {
+        {"enabled", true},
+        {"before", ""},
+        {"foreground", {65, 65, 65}},
+        {"background", {255, 255, 0}},
+        {"after", ""},
+        {"nerd-icon", ""},
+        {"bold", false},
+        {"separator", "/"},
+        {"shorten", true},
+        {"homechar", "~"}
+    }},
+    {"jobs", {
+        {"enabled", true},
+        {"before", ""},
+        {"foreground", {65, 65, 65}},
+        {"background", {242, 112, 89}},
+        {"after", ""},
+        {"nerd-icon", ""},
+        {"bold", false}
+    }},
+    {"ssh", {
+        {"enabled", true},
+        {"before", ""},
+        {"background", {138, 201, 38}},
+        {"after", ""},
+        {"text", "ssh"},
+        {"nerd-icon", ""},
+        {"bold", false}
+    }},
+    {"prompt", {
+        {"enabled", true},
+        {"before", "└─"},
+        {"foreground", {173, 181, 189}},
+        {"after", ""},
+        {"newlineBefore", true},
+        {"newlineAfter", false},
+        {"character", "λ "},
+        {"bold", false}
+    }},
+    {"order", {
+        "before-all", "time", "user", "group", "hostname",
+        "currentdir", "git-branch", "jobs", "ssh"
+    }}
+};
 
     return j.dump(2);
+}
+
+std::string get_sh_default_json() {
+  nlohmann::json j = {
+      {"command", {
+          {"foreground", {96, 213, 200}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"subcommand", {
+          {"foreground", {226, 149, 120}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"flags", {
+          {"foreground", {131, 197, 190}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"quotes", {
+          {"foreground", {88, 129, 87}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"quotes_pref", {
+          {"foreground", {221, 161, 94}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"exec_flags", {
+          {"foreground", {255, 0, 255}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"comments", {
+          {"foreground", {73, 80, 87}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"paths", {
+          {"foreground", {221, 161, 94}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"operators", {
+          {"foreground", {96, 213, 200}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"links", {
+          {"foreground", {17, 138, 178}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", true}
+      }},
+      {"number", {
+          {"foreground", {52, 160, 164}},
+          {"background", {256, 256, 256}},
+          {"bold", false},
+          {"italic", false},
+          {"underline", false}
+      }},
+      {"vars", {
+          {"foreground", {244, 151, 142}},
+          {"background", {256, 256, 256}}
+      }}
+  };
+
+  return j.dump(2);
 }
 
 //////////////
@@ -251,6 +385,15 @@ int install() {
     print("[Setup] Creating ~/.slash/config/prompts/default.json\n");
     if (create_file(slash_path + "/config/prompts/default.json", false) != 0) return 1;
 
+    print("[Setup] Creating syntax-highlighting-themes/\n");
+    if (create_file(slash_path + "/config/syntax-highlighting-themes", true) != 0) return 1;
+
+    print("[Setup] Creating syntax-highlighting-themes/default.json\n");
+    if(create_file(slash_path + "/config/syntax-highlighting-themes/default.json", false) != 0) return 1;
+
+    print("[Setup] Writing to default.json\n");
+    if(overwrite_file(slash_path + "/config/syntax-highlighting-themes/default.json", get_sh_default_json()) != 0) return 1;
+
     print("[Setup] Writing to default.json\n");
     if(overwrite_file(slash_path + "/config/prompts/default.json", get_default_json_content()) != 0) return 1;
 
@@ -271,13 +414,6 @@ int install() {
     print("[Compilation] Building slash...\n");
     if (execute("cmake --build .") != 0) return 1;
 
-    print("[Compilation] Moving slash to usr/local/bin\n");
-    std::string lbpath = "/usr/local/bin/slash";
-    if (rename("slash", lbpath.c_str()) != 0) {
-      error("Failed to move slash to /usr/local/bin: ", true);
-      return 1;
-    }
-
     if (chdir("../src/slash-utils") != 0) {
       error("Failed to enter src/slash-utils directory.");
       return 1;
@@ -288,42 +424,48 @@ int install() {
   
     std::string home = getenv("HOME");
     std::vector<std::string> commands = {
-      "g++ -std=c++20 acart.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/acart -lboost_regex",
-      "g++ -std=c++20 ansi.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/ansi -lboost_regex",
-      "g++ -std=c++20 cmsh.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/cmsh -lboost_regex",
-      "g++ -std=c++20 datetime.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/datetime -lboost_regex",
-      "g++ -std=c++20 dump.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/dump -lboost_regex",
-      "g++ -std=c++20 eol.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/eol -lboost_regex",
-      "g++ -std=c++20 listen.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/listen -lboost_regex",
-      "g++ -std=c++20 move.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/move -lboost_regex",
-      "g++ -std=c++20 perms.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/perms -lboost_regex",
-      "g++ -std=c++20 ascii.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/ascii -lboost_regex",
-      "g++ -std=c++20 create.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/create -lboost_regex",
-      "g++ -std=c++20 del.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/del -lboost_regex",
-      "g++ -std=c++20 echo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/echo -lboost_regex",
-      "g++ -std=c++20 fnd.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/fnd -lboost_regex",
-      "g++ -std=c++20 ls.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../git/git.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/ls -lgit2 -lboost_regex",
-      "g++ -std=c++20 clear.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/clear -lboost_regex",
-      "g++ -std=c++20 csv.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/csv -lboost_regex",
-      "g++ -std=c++20 disku.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/disku -lboost_regex",
-      "g++ -std=c++20 encode.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/encode -lboost_regex",
-      "g++ -std=c++20 mkdir.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/mkdir -lboost_regex",
-      "g++ -std=c++20 pager.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../tui/tui.cpp -o " + home + "/.slash/slash-utils/pager -lboost_regex",
-      "g++ -std=c++20 sumcheck.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/sumcheck -lssl -lcrypto -lboost_regex",
-      "g++ -std=c++20 textmt.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/textmt -lboost_regex",
-      "g++ -std=c++20 netinfo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/netinfo -lboost_regex",
-      "g++ -std=c++20 ren.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp -o " + home + "/.slash/slash-utils/ren -lboost_regex",
-      "g++ -std=c++20 lynx.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../git/git.cpp -o " + home + "/.slash/slash-utils/lynx -lgit2 -lboost_regex",
-      "g++ -std=c++20 srch.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../tui/tui.cpp -o " + home + "/.slash/slash-utils/srch -lboost_regex",
-      "g++ -std=c++20 md.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../tui/tui.cpp -o " + home + "/.slash/slash-utils/md -lboost_regex"
+      "g++ -std=c++20 acart.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/acart -lboost_regex",
+      "g++ -std=c++20 ansi.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/ansi -lboost_regex",
+      "g++ -std=c++20 cmsh.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/cmsh -lboost_regex",
+      "g++ -std=c++20 datetime.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/datetime -lboost_regex",
+      "g++ -std=c++20 dump.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/dump -lboost_regex",
+      "g++ -std=c++20 eol.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/eol -lboost_regex",
+      "g++ -std=c++20 listen.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/listen -lboost_regex",
+      "g++ -std=c++20 move.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/move -lboost_regex",
+      "g++ -std=c++20 perms.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/perms -lboost_regex",
+      "g++ -std=c++20 ascii.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/ascii -lboost_regex",
+      "g++ -std=c++20 create.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/create -lboost_regex",
+      "g++ -std=c++20 del.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/del -lboost_regex",
+      "g++ -std=c++20 echo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/echo -lboost_regex",
+      "g++ -std=c++20 fnd.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/fnd -lboost_regex",
+      "g++ -std=c++20 ls.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../git/git.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/ls -lgit2 -lboost_regex",
+      "g++ -std=c++20 clear.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/clear -lboost_regex",
+      "g++ -std=c++20 csv.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/csv -lboost_regex",
+      "g++ -std=c++20 disku.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/disku -lboost_regex",
+      "g++ -std=c++20 encode.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/encode -lboost_regex",
+      "g++ -std=c++20 mkdir.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/mkdir -lboost_regex",
+      "g++ -std=c++20 pager.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../tui/tui.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/pager -lboost_regex",
+      "g++ -std=c++20 sumcheck.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/sumcheck -lssl -lcrypto -lboost_regex",
+      "g++ -std=c++20 textmt.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/textmt -lboost_regex",
+      "g++ -std=c++20 netinfo.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/netinfo -lboost_regex",
+      "g++ -std=c++20 ren.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/ren -lboost_regex",
+      "g++ -std=c++20 lynx.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../git/git.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/lynx -lgit2 -lboost_regex",
+      "g++ -std=c++20 srch.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../tui/tui.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/srch -lboost_regex",
+      "g++ -std=c++20 md.cpp ../abstractions/iofuncs.cpp ../abstractions/info.cpp ../help_helper.cpp ../cmd_highlighter.cpp ../tui/tui.cpp ../abstractions/json.cpp -o " + home + "/.slash/slash-utils/md -lboost_regex"
   };
+
 
 
   for(int i = 0; i < commands.size(); i++) {
     system(commands[i].c_str());
   }
 
-  print(green + "Slash has been installed!" + reset + "\n");
+  print("\x1b[7mPLEASE RUN THE FOLLOWING COMMAND UNDER ROOT\x1b[0m\n");
+  print("sudo mv build/slash /usr/local/bin/slash\n\n");
+
+  print("This is not a slash limitation, but a system limitation.\n");
+  print("Running the installer under root will only make slash usable for the root,\n");
+  print("just like installing slash will only make it usable for the current user\n");
   return 0;
 }
 

@@ -24,7 +24,6 @@ int help() {
   ss << yellow << "  • cd:    " << reset << "Change current directory\n";
   ss << yellow << "  • alias: " << reset << "Manipulate aliases\n";
   ss << yellow << "  • var:   " << reset << "Manipulate variables\n";
-  ss << yellow << "  • clear: " << reset << "Clear terminal\n";
   ss << yellow << "  • jobs:  " << reset << "View jobs\n\n";
 
   ss << yellow << "  • slash-greeting: " << reset << "Display the greeting\n\n";
@@ -36,7 +35,8 @@ int help() {
   ss << "              ◦ Display a message showing a better way to quit it\n";
   ss << "              ◦ Simply get ignored\n"; 
   ss << blue << "  • Ctrl+Z:" << reset << " Stop a process temporarily. It can be resumed with " << highl("jobs -r <pid>\n") << reset;
-  ss << "            Stopped processes can be viewed with " << highl("jobs\n\n") << reset;
+  ss << "            Stopped processes can be viewed with " << highl("jobs\n") << reset;
+  ss  << "  To see more keybindings, use " << highl("help --keys\n\n");
 
   ss << green << "Special characters\n" << reset;
   ss << cyan << "  • &:" << reset << "Start process in the background\n\n";
@@ -60,6 +60,35 @@ int help() {
   ss << "  3. Want slash-utils help instead: Use " << highl("help --slash-utils") << "\n";  
 
   io::print(ss.str());
+  return 0;
+}
+
+int help_keys() {
+  std::stringstream ss;
+  ss << blue << "  • Ctrl+C: " << reset << " Send SIGINT to the currently running process\n";
+  ss << "            Depending on how the program handles it, this may either:\n";
+  ss << "              ◦ Terminate it\n";
+  ss << "              ◦ Display a message showing a better way to quit it\n";
+  ss << "              ◦ Simply get ignored\n"; 
+  ss << blue << "  • Ctrl+Z: " << reset << " Stop a process temporarily. It can be resumed with " << highl("jobs -r <pid>\n") << reset;
+  ss << "            Stopped processes can be viewed with " << highl("jobs\n") << reset;
+  ss << blue << "  • Ctrl+D: " << reset << "Sends EOF, meaning there is no more input. slash will exit.\n\n";
+
+  ss << yellow << "  • Ctrl+K: " << reset << " Clear all content after the cursor\n";
+  ss << yellow << "  • Ctrl+W: " << reset << " Clear the word cursor is on\n";
+  ss << yellow << "  • Ctrl+L: " << reset << " Clear screen easily without clearing scrollback buffer\n";
+  ss << yellow << "  • Alt+X:  " << reset << " Convert entire input to lowercase\n";
+  ss << yellow << "  • Alt+C:  " << reset << " Convert entire input to uppercase\n\n";
+
+  ss << red << "  • ↑:      " << reset << " Scroll history up\n";
+  ss << red << "  • ↓:      " << reset << " Scroll history down\n";
+  ss << red << "  • →:      " << reset << " Move cursor one character right\n";
+  ss << red << "  • ←:      " << reset << " Move cursor one character left\n";
+  ss << red << "  • Shift+→:" << reset << " Move cursor one word right\n"; 
+  ss << red << "  • Shift+←:" << reset << " Move cursor one word left\n"; 
+
+  io::print(ss.str());
+
   return 0;
 }
 
