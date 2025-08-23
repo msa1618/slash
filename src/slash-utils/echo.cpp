@@ -3,7 +3,7 @@
 #include <chrono>
 #include <thread>
 #include <cmath>
-
+#include <algorithm>
 
 #include "../abstractions/iofuncs.h"
 #include "../abstractions/info.h"
