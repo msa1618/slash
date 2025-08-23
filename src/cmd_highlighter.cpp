@@ -99,6 +99,7 @@ std::string highl(std::string prompt) {
   boost::regex exec_flags(R"(@(r|t|o|O|e))");
   boost::regex links(R"([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s/$.?#].[^\s]*)");
   boost::regex subcommands(R"(\b[A-Za-z0-9\-_]+\b)");
+  boost::regex vars(R"(\$[A-Za-z0-9_]+)");
 
   const std::string cmd_color         = get_ansi(j, "command");
   const std::string number_color      = get_ansi(j, "numbers");
@@ -111,8 +112,10 @@ std::string highl(std::string prompt) {
   const std::string subcommand_color  = get_ansi(j, "subcommand");
   const std::string exec_flags_color  = get_ansi(j, "exec_flags");
   const std::string operator_color    = get_ansi(j, "operators");
+  const std::string var_color         = get_ansi(j, "vars");
 
   std::vector<std::pair<boost::regex, std::string>> patterns = {
+      {vars, var_color},
       {exec_flags, exec_flags_color},
       {numbers, number_color},
       {flags, flag_color},

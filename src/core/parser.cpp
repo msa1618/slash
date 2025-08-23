@@ -116,6 +116,7 @@ Args parse_arguments(std::string command) {
   for (i = 0; i < parsed_command.size(); i++) {
     char c = parsed_command[i];
     char next = (i + 1 < parsed_command.size()) ? parsed_command[i + 1] : '\0';
+    char prev = (i != 0) ? parsed_command[i - 1] : ' ';
 
     // Start of quoted string
     if ((c == '"' || c == '\'') && !dq_mode && !sq_mode) {
@@ -159,6 +160,7 @@ Args parse_arguments(std::string command) {
             continue;
         }
       }
+
       args.push_back(buffer);
       buffer.clear();
       dq_mode = false;
@@ -166,7 +168,27 @@ Args parse_arguments(std::string command) {
       continue;
     }
 
-    // Argument break
+    if (c == '$' && prev != '\\') {
+        // Find variable name
+        size_t var_start = i + 1;
+        size_t var_end = var_start;
+        while (var_end < parsed_command.size() &&
+              (isalnum(parsed_command[var_end]) || parsed_command[var_end] == '_')) {
+            var_end++;
+        }
+        std::string var_name = parsed_command.substr(var_start, var_end - var_start);
+
+        auto val_variant = get_value(var_name);
+        if (!std::holds_alternative<std::string>(val_variant)) {
+            info::error("Variable does not exist!");
+            return {};
+        }
+
+        buffer += std::get<std::string>(val_variant);
+        i = var_end - 1;
+        continue;
+    }
+
     if (c == ' ' && !dq_mode && !sq_mode) {
       if (!buffer.empty()) {
         args.push_back(buffer);
