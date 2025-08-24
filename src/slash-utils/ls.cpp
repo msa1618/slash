@@ -231,7 +231,7 @@ private:
         io::print("\n");
     }
 
-    int tree_print(std::string dir_path, bool print_hidden, std::vector<bool> last_entry_stack = {}) {
+    int tree_print(std::string dir_path, bool print_hidden, bool git, std::vector<bool> last_entry_stack = {}) {
         DIR *dir = opendir(dir_path.c_str());
         if (!dir) {
             info::error(strerror(errno), errno, dir_path);
@@ -249,6 +249,8 @@ private:
             }
             names.push_back(name);
         }
+
+        GitRepo repo(dir_path);
 
         std::sort(names.begin(), names.end());
         for (size_t i = 0; i < names.size(); ++i) {
@@ -274,26 +276,73 @@ private:
             // Print branch for current entry
             io::print(is_last ? "└─" : "├─");
 
-            if (S_ISDIR(path_stat.st_mode)) {
-                io::print(bold + blue + name + reset + "\n");
-                auto new_stack = last_entry_stack;
-                new_stack.push_back(is_last);
-                tree_print(path, print_hidden, new_stack);
-            } else if (S_ISLNK(path_stat.st_mode)) {
-                char buf[1024];
-                ssize_t len = readlink(path.c_str(), buf, sizeof(buf) - 1);
-                if (len != -1) {
-                    buf[len] = '\0';
-                    io::print(bold + orange + name + reset + " -> " + buf + "\n");
+            if(!git) {
+                if (S_ISDIR(path_stat.st_mode)) {
+                    io::print(bold + blue + name + reset + "\n");
+                    auto new_stack = last_entry_stack;
+                    new_stack.push_back(is_last);
+                    tree_print(path, print_hidden, git, new_stack);
+                } else if (S_ISLNK(path_stat.st_mode)) {
+                    char buf[1024];
+                    ssize_t len = readlink(path.c_str(), buf, sizeof(buf) - 1);
+                    if (len != -1) {
+                        buf[len] = '\0';
+                        io::print(bold + orange + name + reset + " -> " + buf + "\n");
+                    } else {
+                        io::print(orange + name + reset + " -> [unreadable]\n");
+                    }
+                } else if (S_ISSOCK(path_stat.st_mode)) {
+                    io::print(bold + magenta + name + reset + "\n");
+                } else if (S_ISFIFO(path_stat.st_mode)) {
+                    io::print(bold + red + name + reset + "\n");
                 } else {
-                    io::print(orange + name + reset + " -> [unreadable]\n");
+                    io::print(green + name + reset + "\n");
                 }
-            } else if (S_ISSOCK(path_stat.st_mode)) {
-                io::print(bold + magenta + name + reset + "\n");
-            } else if (S_ISFIFO(path_stat.st_mode)) {
-                io::print(bold + red + name + reset + "\n");
             } else {
-                io::print(green + name + reset + "\n");
+                if(repo.get_repo() == nullptr) {
+                    info::error("The directory is not a git repository.");
+                    return -1;
+                }
+                
+                std::string color;
+
+                std::string repo_root = repo.get_root_path();
+                if (!repo_root.empty()) {
+                    std::filesystem::path file_path = std::filesystem::absolute(dir_path + "/" + name);
+                    std::filesystem::path root_path = std::filesystem::path(repo_root);
+                    std::string relative_path = std::filesystem::relative(file_path, root_path).string();
+
+                    std::string status = repo.get_file_status(relative_path);
+
+                    if (status == "U") {
+                        color = blue;  // Red (unmodified)
+                    } else if (status == "M") {
+                        color = "\033[33m";  // Yellow (modified)
+                    } else if (status == "S") {
+                        color = "\033[32m";  // Green (staged)
+                    } else if (status == "I") {
+                        color = "\033[90m";  // Gray (ignored)
+                    } else if (status == "R") {
+                        color = "\033[36m";  // Cyan (renamed)
+                    } else if (status == "N") {
+                        color = gray;   //  (untracked)
+                    } else {
+                        color = "\033[0m";   // Fallback/reset
+                    }
+
+                    if(S_ISDIR(path_stat.st_mode)) {
+                        // Directories arent exactly "tracked" like files
+                        io::print(bold + magenta + name + " ()" + reset + "\n");
+                        auto new_stack = last_entry_stack;
+                        new_stack.push_back(is_last);
+                        tree_print(path, print_hidden, git, new_stack);
+                    } else {
+                        io::print(color + name + " (" + status + ")" + reset + "\n");
+                    }
+                } else {
+                    info::error("Failed to get Git root path.");
+                    return -1;
+                }
             }
         }
 
@@ -357,6 +406,7 @@ public:
                     "",
                     ""
                 }));
+                return 0;
             }
 
             if (!arg.starts_with("-")) {
@@ -372,7 +422,7 @@ public:
         }
 
         if (print_tree) {
-            tree_print(dirpath, print_hidden);
+            tree_print(dirpath, print_hidden, with_git);
             return 0;
         } else {
             default_print(dirpath, print_hidden, with_icons, with_git);
