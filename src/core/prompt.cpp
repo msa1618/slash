@@ -275,11 +275,12 @@ std::string get_git_segment(bool only_want_unused_or_not) {
     if(j.empty() || !get_bool(j,"enabled","git-branch").value_or(false)) return "";
     if(only_want_unused_or_not) return "<SUCCESS>";
 
-    char cwd_buffer[512];
+    char cwd_buffer[PATH_MAX];
     std::string cwd = getcwd(cwd_buffer,sizeof(cwd_buffer));
     GitRepo repo(cwd);
     std::string branch = repo.get_branch_name();
     if(branch.empty()) return "<UNUSED>";
+    else if(only_want_unused_or_not) return "<SUCCESS>";
 
     auto segmentstyle = get_string(j,"segment-style").value_or("rectangle");
     auto first = get_order().at(0) == "git-branch";
@@ -471,35 +472,20 @@ void draw_prompt() {
     std::stringstream prompt;
 
     for (auto& elm : get_order()) {
-        if (elm == "before-all") {
-            prompt << get_beforeall_segment();
-        } else if (elm == "time") {
-            prompt << get_time_segment();
-        } else if (elm == "user") {
-            prompt << get_user_segment();
-        } else if (elm == "group") {
-            prompt << get_group_segment();
-        } else if (elm == "hostname") {
-            prompt << get_hostname_segment();
-        } else if (elm == "currentdir") {
-            prompt << get_cwd_segment();
-        } else if (elm == "git-branch") {
-          std::string seg = get_git_segment();
-          if(seg != "<UNUSED>") {
-            prompt << get_git_segment();
-          }
-        } else if (elm == "jobs") {
-            std::string seg = get_jobs_segment();
-          if(seg != "<UNUSED>") {
-            prompt << get_jobs_segment();
-          }
-        } else if (elm == "ssh") {
-            std::string seg = get_ssh_segment();
-          if(seg != "<UNUSED>") {
-            prompt << get_ssh_segment();
-          }
-        }
+        std::string seg_str;
+        if(elm == "before-all") seg_str = get_beforeall_segment();
+        else if(elm == "time") seg_str = get_time_segment();
+        else if(elm == "user") seg_str = get_user_segment();
+        else if(elm == "group") seg_str = get_group_segment();
+        else if(elm == "hostname") seg_str = get_hostname_segment();
+        else if(elm == "currentdir") seg_str = get_cwd_segment();
+        else if(elm == "git-branch") seg_str = get_git_segment();
+        else if(elm == "jobs") seg_str = get_jobs_segment();
+        else if(elm == "ssh") seg_str = get_ssh_segment();
+
+        if(seg_str != "<UNUSED>") prompt << seg_str;
     }
+
 
     io::print(prompt.str());
 
@@ -527,6 +513,7 @@ void redraw_prompt(std::string content, int char_pos = -1) { // -1: not specifie
       move_cursor << "\x1b[" << content_rows << "A";
       io::print(move_cursor.str());
       io::print("\r" + get_prompt_segment() + content);
+      if(char_pos == io::strip_ansi(content).length()) io::print("\x1b[0K"); // Clear the rest of the line from the cursor to visually delete a character if backspace
     }
 
     if(char_pos != -1) {
@@ -744,32 +731,6 @@ std::variant<std::string, int> read_input(int& history_index) {
     }
 
     if(isprint(static_cast<unsigned char>(c))) {
-    if(c == '\'' || c == '"' || c == '(' || c == '{' || c == '[') {
-        buffer.insert(buffer.begin() + char_pos, c);      // insert first quote
-        char_pos++;
-
-        char second = 0;
-        if (c == '\'')  second = '\'';
-        if (c == '"')   second = '"';
-        if (c == '(')   second = ')';
-        if (c == '{')   second = '}';
-        if (c == '[')   second = ']';
-
-        if(second == 0) continue;
-        
-        buffer.insert(buffer.begin() + char_pos, second);
-
-        // Clear line and reprint everything with syntax highlight
-        redraw_prompt(highl(buffer));
-
-        // Move cursor back to position inside quotes
-        int cursor_back = buffer.length() - char_pos;
-        if (cursor_back > 0) {
-            std::stringstream move_left;
-            move_left << "\x1b[" << cursor_back << "D";
-            io::print(move_left.str());
-        }
-    } else {
         buffer.insert(buffer.begin() + char_pos, c);
         char_pos++;
 
@@ -783,7 +744,6 @@ std::variant<std::string, int> read_input(int& history_index) {
         }
     }
     backup_buffer = buffer;
-}
   }
   return buffer;
 }
