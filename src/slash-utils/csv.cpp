@@ -111,49 +111,61 @@ std::string print_csv_table(std::string csv, std::string separator) {
       };
 
       bool is_text = false;
-std::string separator = ",";
-std::string arg;
+      std::string separator = ",";
+      std::string arg;
 
-for (size_t i = 0; i < args.size(); ++i) {
-    const std::string& current = args[i];
+    for (size_t i = 0; i < args.size(); ++i) {
+        const std::string& current = args[i];
 
-    // Invalid unknown options
-    if (current.starts_with("-") &&
-        current != "-s" && current != "--separator" &&
-        current != "-t" && current != "--text") {
-        info::error("Invalid argument \"" + current + "\"\n");
-        return EINVAL;
-    }
-
-    // Separator option
-    if (current == "-s" || current == "--separator") {
-        if (i + 1 >= args.size()) {
-            info::error("Expected separator after " + current);
+        if (current.starts_with("-") &&
+            current != "-s" && current != "--separator" &&
+            current != "-t" && current != "--text") {
+            info::error("Invalid argument \"" + current + "\"\n");
             return EINVAL;
         }
-        separator = args[++i]; // use the next argument
-        if (separator == "\\|") separator = "|";
-        else if (separator == "\\;") separator = ";";
-        continue;
-    }
 
-    // Text option
-    if (current == "-t" || current == "--text") {
-        if (i + 1 >= args.size()) {
-            info::error("Expected text after " + current);
-            return EINVAL;
+        // Separator option
+        if (current == "-s" || current == "--separator") {
+            if (i + 1 >= args.size()) {
+                info::error("Expected separator after " + current);
+                return EINVAL;
+            }
+            separator = args[++i]; // use the next argument
+            if (separator == "\\|") separator = "|";
+            else if (separator == "\\;") separator = ";";
+            continue;
         }
-        arg = args[++i]; // grab the actual text
-        is_text = true;
-        continue;
+
+        // Text option
+        if (current == "-t" || current == "--text") {
+            if (i + 1 >= args.size()) {
+                info::error("Expected text after " + current);
+                return EINVAL;
+            }
+            arg = args[++i]; // grab the actual text
+            is_text = true;
+            continue;
+        }
+
+        // Positional argument (filename)
+        if (!current.starts_with("-") && arg.empty()) {
+            arg = current;
+        }
     }
 
-    // Positional argument (filename)
-    if (!current.starts_with("-") && arg.empty()) {
-        arg = current;
+    std::string content;
+    if(is_text) content = arg;
+    else {
+      auto cnt = io::read_file(arg);
+      if(!std::holds_alternative<std::string>(cnt)) {
+        info::error("Failed to read file: " + std::string(strerror(errno)), errno);
+        return errno;
+      }
+      content = std::get<std::string>(cnt);
     }
-}
-}
+    io::print(print_csv_table(content, separator));
+    return 0;
+  }
 };
 
   int main(int argc, char* argv[]) {

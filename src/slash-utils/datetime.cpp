@@ -156,6 +156,7 @@ class Datetime {
         if(args[i] == "-f" || args[i] == "--formatted") {
           if (i + 1 < args.size()) {
             print_formatted(args[++i]);
+            return 0;
           } else {
             info::error("No formatted string specified");
             return EINVAL;
@@ -167,6 +168,7 @@ class Datetime {
           return 0;
         }
       }
+      return -1;
     }
 };
 

@@ -181,6 +181,7 @@ class Lynx {
       }
 
       io::print("\n");
+      return 0;
     }
 
   public:

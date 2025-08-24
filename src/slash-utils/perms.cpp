@@ -96,7 +96,7 @@ class Perms  {
 
       if(mode.length() != 9) {
         info::error("Invalid mode! Mode should be 9 characters long");
-        return 0;
+        return -1;
       }
 
       auto to_digit = [](const std::string& triplet) {
@@ -197,6 +197,7 @@ class Perms  {
         return 0;
       }
     }
+    return -1;
   }
   };
 

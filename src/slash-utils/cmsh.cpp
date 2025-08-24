@@ -225,7 +225,7 @@ Commands:
         if (op == '*' || op == '/') return 2;
         return 0; // For parentheses
     }
-    int apply_op(std::stack<double>& operands, std::stack<std::string>& opers) { // int is status
+    void apply_op(std::stack<double>& operands, std::stack<std::string>& opers) {
       std::string opr = opers.top(); opers.pop();
 
       double res = 0;
@@ -271,6 +271,7 @@ Commands:
 
       operands.push(res);
     }
+
     double evaluate(std::string expr) {
       std::stack<double> operands;
       std::stack<std::string> operators;

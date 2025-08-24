@@ -24,6 +24,8 @@ class Eol {
         info::error(error, errno);
         return errno;
       }
+
+      return 0;
     }
 
     int count_occurences(std::string content, std::string str) {
@@ -125,6 +127,8 @@ class Eol {
         if(unix_eol) return change_eol(filepath, "\n");
         if(windows) return change_eol(filepath, "\r\n");
         if(mac) return change_eol(filepath, "\r");
+
+        return -1;
       }
 };
 

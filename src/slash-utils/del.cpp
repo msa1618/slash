@@ -157,7 +157,7 @@ class Del {
       struct stat st;
       if(stat(path.c_str(), &st) != 0) {
         info::error("Failed to stat file: " + path, errno);
-        continue;
+        return errno;
       }
 
       if(prompt) {
@@ -171,42 +171,47 @@ class Del {
         if(bytesRead < 0) {
           std::string error = std::string("Failed to read input: ") + strerror(errno);
           info::error(error, errno);
-          return -1;
+          return errno;
         }
         input[2] = '\0';
         if(tolower(input[0]) == 'n') continue;
 
         if(trash) {
           if(trash_file(path) != 0) {
-            continue;
+            return -1;
           }
         } else {
           if(S_ISDIR(st.st_mode) && recursive) {
             std::cout << trash;
             delete_dirs_recursively(path, trash);
+            return 0;
           } else {
             if(unlink(path.c_str()) != 0) {
               std::string error = std::string("Failed to delete file: ") + strerror(errno);
               info::error(error, errno);
+              return errno;
             }
           }
         }
       }
       if(trash) {
           if(trash_file(path) != 0) {
-            continue;
+            return errno;
           }
         } else {
         if(S_ISDIR(st.st_mode) && recursive) {
           delete_dirs_recursively(path, trash);
+          return 0;
         } else {
           if(unlink(path.c_str()) != 0) {
             std::string error = std::string("Failed to delete file: ") + strerror(errno);
             info::error(error, errno);
+            return errno;
           }
         }
     }
     }
+    return -1;
   };
 };
 

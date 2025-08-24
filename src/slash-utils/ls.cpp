@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <csignal>
 
 #include <algorithm>
 #include <math.h>
@@ -235,6 +236,7 @@ private:
         }    
 
         io::print("\n");
+        return 0;
     }
 
     int tree_print(std::string dir_path, bool print_hidden, bool git, std::vector<bool> last_entry_stack = {}) {
@@ -434,11 +436,13 @@ public:
             default_print(dirpath, print_hidden, with_icons, with_git);
             return 0;
         }
+        return 0;
     }
 };
 
 int main(int argc, char* argv[]) {
     Ls ls;
+    signal(SIGILL, SIG_IGN);
 
     std::vector<std::string> args;
     for (int i = 1; i < argc; ++i) {

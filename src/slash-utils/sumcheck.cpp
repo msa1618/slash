@@ -144,6 +144,7 @@ class Sumcheck {
         io::print(result);
         io::print("\n");
       }
+      return 0;
     }
 
   public:

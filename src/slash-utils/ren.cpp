@@ -1,4 +1,5 @@
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/info.h"
 #include "../help_helper.h"
 
 #include <unistd.h>
@@ -26,9 +27,11 @@ class Ren {
       const char* sec_path = args[1].c_str();
 
       if(rename(first_path, sec_path) != 0) {
-        perror("Failed to rename file");
-        return 1;
+        info::error("Failed to rename file: " + std::string(strerror(errno)), errno);
+        return -1;
       }
+
+      return 0;
     }
 };
 

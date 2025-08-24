@@ -19,6 +19,7 @@ class Move {
         info::error("Failed to clear history.");
         return -1;
       }
+      return 0;
     }
 
     int append_move_log(const std::string& src_file, const std::string& dest_dir) {
@@ -195,6 +196,8 @@ class Move {
         "--undo", "--clear-history"
       };
 
+      std::string src, dest;
+
       for(auto& a : args) {
         if(!io::vecContains(valid_args, a) && a.starts_with('-')) {
           info::error("Invalid argument: " + a);
@@ -223,11 +226,15 @@ class Move {
           return -1;
         }
 
-        std::string src_file = args[0];
-        std::string dest_dir = args[1];
-        
-        return move(src_file, dest_dir);
+        if(!a.starts_with("-")) {
+          if(src.empty()) {
+            src = a;
+            continue;
+          } else dest = a;
+        }
       }
+      
+      return move(src, dest);
     }
 };
 
