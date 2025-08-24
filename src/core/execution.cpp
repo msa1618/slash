@@ -147,7 +147,7 @@ std::string message(int sig, bool core_dumped) {
         std::stringstream ss;
         ss << red << "[Terminated: " << strsignal(sig);
         if(core_dumped) ss << " (core dumped)";
-        ss << "]";
+        ss << "]" << reset;
         return ss.str();
     } else if(color == yellow) {
         return yellow + "[" + sig_name + "]" + reset;

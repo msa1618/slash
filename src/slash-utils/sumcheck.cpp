@@ -162,7 +162,7 @@ class Sumcheck {
             {"-c", "--crc32", "Computes Cyclic Redundancy Check (CRC32)"},
             {"-m", "--md5", "Computes MD5"},
             {"-s", "--sha256", "Computes SHA-256"},
-            {"-t", "--text", "The incoming argument is text and not a path"}
+            {"-t", "--text", "The incoming argument is text and not a path"},
             {"-n", "--no-colo[u]r", "Outputs without color"}
           },
           {
