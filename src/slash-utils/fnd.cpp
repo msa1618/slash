@@ -36,7 +36,6 @@ class Fnd {
             info::error(error, errno);
             return -1;
         }
-        buffer[511] = '\0';
         dir = buffer;
         cwd = buffer;
     }
@@ -108,27 +107,30 @@ class Fnd {
             }
 
             std::string color;
-            if (f_type == "dir") color = bold + blue;
-            else if (f_type == "link") color = bold + orange;
-            else if (f_type == "fifo") color = bold + red;
-            else if (f_type == "sock") color = bold + magenta;
-            else if (f_type == "file") color = green;
-            else color = gray;
 
             std::vector<std::string> segs = io::split(display_path, "/");
-            for (size_t i = 0; i < segs.size() - 1; i++) {
+            if(isatty(STDOUT_FILENO)) {
+              if (f_type == "dir") color = bold + blue;
+              else if (f_type == "link") color = bold + orange;
+              else if (f_type == "fifo") color = bold + red;
+              else if (f_type == "sock") color = bold + magenta;
+              else if (f_type == "file") color = green;
+              else color = gray;
+
+              for (size_t i = 0; i < segs.size() - 1; i++) {
                 segs[i] = blue + segs[i] + "/" + reset;
-            }
-            if (!segs.empty()) {
-                segs.back() = color + segs.back() + reset;
+              }
+              if (!segs.empty()) {
+                  segs.back() = color + segs.back() + reset;
+              }
             }
 
-            std::string colored_path;
+            std::string path;
             for (auto& seg : segs) {
-                colored_path += seg;
+                path += seg;
             }
 
-            io::print(colored_path + "\n");
+            io::print(path + "\n");
         }
 
         // ---- ALWAYS RECURSE ----

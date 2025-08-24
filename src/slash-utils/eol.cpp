@@ -38,7 +38,7 @@ class Eol {
       return count;
     }
 
-    int print_occurences(std::string filepath) {
+    int print_occurences(std::string filepath, bool seq) {
       auto content = io::read_file(filepath);
       if (!std::holds_alternative<std::string>(content)) {
         info::error("Failed to read file: " + std::string(strerror(errno)), errno);
@@ -47,14 +47,23 @@ class Eol {
 
       std::string cnt = std::get<std::string>(content);
 
-      int crlf = count_occurences(cnt, "\r\n");
+      std::string crlf = std::to_string(count_occurences(cnt, "\r\n"));
       io::replace_all(cnt, "\r\n", ""); // remove CRLFs
-      int lf = count_occurences(cnt, "\n");
-      int cr = count_occurences(cnt, "\r");
+      std::string lf = std::to_string(count_occurences(cnt, "\n"));
+      std::string cr = std::to_string(count_occurences(cnt, "\r"));
 
-      io::print(orange + "LF: " + reset + std::to_string(lf) + "\n");
-      io::print(blue   + "CRLF: " + reset + std::to_string(crlf) + "\n");
-      io::print(cyan   + "CR: " + reset + std::to_string(cr) + "\n");
+      std::stringstream ss;
+
+      std::string color;
+
+      if(seq) {
+        io::print(lf + ", " + crlf + ", " + cr);
+      } else {
+        io::print(orange + "LF: " + reset + lf + "\n");
+        io::print(blue   + "CRLF: " + reset + crlf + "\n");
+        io::print(cyan   + "CR: " + reset + cr + "\n");
+
+      }
 
       return 0;
     }
@@ -74,6 +83,7 @@ class Eol {
               {"-u", "--unix", "Converts EOL to LF"},
               {"-w", "--windows", "Converts EOL to CRLF"},
               {"-m", "--macintosh", "Converts EOL to CR, used in old Macs"},
+              {"-s", "--seq", "Print occurences in the format {lf, crlf, cr}"}
             },
             {
               {"eol main.cpp", "Prints the occurences of the 3 main EOLs of main.cpp"},
@@ -84,8 +94,8 @@ class Eol {
         }
 
         std::vector<std::string> valid_args = {
-          "-u", "-w", "-m"
-          "--unix", "--windows", "--mac"
+          "-u", "-w", "-m", "-s",
+          "--unix", "--windows", "--mac", "--seq"
         };
 
         std::string filepath;
@@ -93,6 +103,7 @@ class Eol {
         bool unix_eol = false;
         bool windows  = false;
         bool mac      = false;
+        bool seq      = false;
 
         for(auto& arg : args) {
           if(arg.starts_with("-") && !io::vecContains(valid_args, arg)) {
@@ -103,13 +114,14 @@ class Eol {
           if(arg == "-u" || arg == "--unix") unix_eol = true;
           if(arg == "-w" || arg == "--windows") windows = true;
           if(arg == "-m" || arg == "--mac") mac = true;
+          if(arg == "-s" || arg == "--seq") seq = true;
 
           if(!arg.starts_with("-")) filepath = arg;
         }
 
         bool print_occurs = !(unix_eol || windows || mac);
 
-        if(print_occurs) return print_occurences(filepath);
+        if(print_occurs) return print_occurences(filepath, seq);
         if(unix_eol) return change_eol(filepath, "\n");
         if(windows) return change_eol(filepath, "\r\n");
         if(mac) return change_eol(filepath, "\r");

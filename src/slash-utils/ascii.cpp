@@ -1,165 +1,186 @@
 #include "../abstractions/iofuncs.h"
+#include "../abstractions/info.h"
 #include "../abstractions/definitions.h"
 
 #include <vector>
 #include <ios>
 #include <sstream>
+#include <locale>
+#include <wchar.h>
 
 class Ascii {
+  private:
+    int visible_width(const std::string& utf8_char) {
+        std::wstring wide;
+        wchar_t wc;
+        mbstate_t state = mbstate_t();
+        const char* src = utf8_char.c_str();
+        size_t len = mbrtowc(&wc, src, utf8_char.size(), &state);
+        if (len == static_cast<size_t>(-1) || len == static_cast<size_t>(-2)) {
+            return 0;
+        }
+        wide += wc;
+
+        if (wide.empty()) return 0;
+
+        int width = wcwidth(wide[0]);
+        return width < 0 ? 0 : width; // -1 means non-printable
+    }
+
   public:
     Ascii() {}
 
     int exec(std::vector<std::string> args) {
-      std::vector<std::pair<std::string, std::string>> ascii_table;
-      std::vector<std::string> validArgs = {
-        "-h", "--hexadecimal", "-o", "--octal", "-e", "--extended",
-      };
-
-      bool prnt_extended = false;
-
-      bool use_dec = true;
-      bool use_hex = false;
-      bool use_oct = false;
-
-      for(auto& arg : args) {
-        bool contains_bad_args = false;
-        if(!io::vecContains(validArgs, arg)) {
-          std::stringstream error_msg;
-          error_msg << bold << red << "error: " << reset << "bad argument: " << arg;
-          contains_bad_args = true;
-        }
-        if(arg == args[args.size()] && contains_bad_args) {
-          return -1; // Printed out all bad arguments and exited with an error code
-        }
-
-        if((arg == "-h" || arg == "--hexadecimal") && !use_oct) {
-          use_hex = true;
-
-          use_dec = false;
-          use_oct = false;
-        }
-
-        if((arg == "-o" || arg == "--octal") && !use_hex) {
-          use_oct = true;
-
-          use_dec = false;
-          use_dec = false;
-        }
-
-        if(arg == "-e" || arg == "--extended") {
-          prnt_extended = true;
-        }
-      }
-
-      if(!prnt_extended) {
-        ascii_table = {
-          {"0", "NUL"}, {"1", "SOH"}, {"2", "STX"}, {"3", "ETX"}, {"4", "EOT"}, {"5", "ENQ"}, {"6", "ACK"}, {"7", "BEL"},
-          {"8", "BS"},  {"9", "TAB"}, {"10", "LF"}, {"11", "VT"}, {"12", "FF"}, {"13", "CR"}, {"14", "SO"}, {"15", "SI"},
-          {"16", "DLE"}, {"17", "DC1"}, {"18", "DC2"}, {"19", "DC3"}, {"20", "DC4"}, {"21", "NAK"}, {"22", "SYN"}, {"23", "ETB"},
-          {"24", "CAN"}, {"25", "EM"}, {"26", "SUB"}, {"27", "ESC"}, {"28", "FS"}, {"29", "GS"}, {"30", "RS"}, {"31", "US"},
-          {"32", " "}, {"33", "!"}, {"34", "\""}, {"35", "#"}, {"36", "$"}, {"37", "%"}, {"38", "&"}, {"39", "'"},
-          {"40", "("}, {"41", ")"}, {"42", "*"}, {"43", "+"}, {"44", ","}, {"45", "-"}, {"46", "."}, {"47", "/"},
-          {"48", "0"}, {"49", "1"}, {"50", "2"}, {"51", "3"}, {"52", "4"}, {"53", "5"}, {"54", "6"}, {"55", "7"},
-          {"56", "8"}, {"57", "9"}, {"58", ":"}, {"59", ";"}, {"60", "<"}, {"61", "="}, {"62", ">"}, {"63", "?"},
-          {"64", "@"}, {"65", "A"}, {"66", "B"}, {"67", "C"}, {"68", "D"}, {"69", "E"}, {"70", "F"}, {"71", "G"},
-          {"72", "H"}, {"73", "I"}, {"74", "J"}, {"75", "K"}, {"76", "L"}, {"77", "M"}, {"78", "N"}, {"79", "O"},
-          {"80", "P"}, {"81", "Q"}, {"82", "R"}, {"83", "S"}, {"84", "T"}, {"85", "U"}, {"86", "V"}, {"87", "W"},
-          {"88", "X"}, {"89", "Y"}, {"90", "Z"}, {"91", "["}, {"92", "\\"}, {"93", "]"}, {"94", "^"}, {"95", "_"},
-          {"96", "`"}, {"97", "a"}, {"98", "b"}, {"99", "c"}, {"100", "d"}, {"101", "e"}, {"102", "f"}, {"103", "g"},
-          {"104", "h"}, {"105", "i"}, {"106", "j"}, {"107", "k"}, {"108", "l"}, {"109", "m"}, {"110", "n"}, {"111", "o"},
-          {"112", "p"}, {"113", "q"}, {"114", "r"}, {"115", "s"}, {"116", "t"}, {"117", "u"}, {"118", "v"}, {"119", "w"},
-          {"120", "x"}, {"121", "y"}, {"122", "z"}, {"123", "{"}, {"124", "|"}, {"125", "}"}, {"126", "~"}, {"127", "DEL"}
+        std::vector<std::pair<std::string, std::string>> ascii_table;
+        std::vector<std::string> validArgs = {
+          "-h", "--hexadecimal", "-o", "--octal", "-e", "--extended",
         };
-      } else {
-        ascii_table = {
-          {"128", "Ç"}, {"129", "ü"}, {"130", "é"}, {"131", "â"}, {"132", "ä"}, {"133", "à"}, {"134", "å"}, {"135", "ç"},
-          {"136", "ê"}, {"137", "ë"}, {"138", "è"}, {"139", "ï"}, {"140", "î"}, {"141", "ì"}, {"142", "Ä"}, {"143", "Å"},
-          {"144", "É"}, {"145", "æ"}, {"146", "Æ"}, {"147", "ô"}, {"148", "ö"}, {"149", "ò"}, {"150", "û"}, {"151", "ù"},
-          {"152", "ÿ"}, {"153", "Ö"}, {"154", "Ü"}, {"155", "¢"}, {"156", "£"}, {"157", "¥"}, {"158", "₧"}, {"159", "ƒ"},
-          {"160", "á"}, {"161", "í"}, {"162", "ó"}, {"163", "ú"}, {"164", "ñ"}, {"165", "Ñ"}, {"166", "ª"}, {"167", "º"},
-          {"168", "¿"}, {"169", "⌐"}, {"170", "¬"}, {"171", "½"}, {"172", "¼"}, {"173", "¡"}, {"174", "«"}, {"175", "»"},
-          {"176", "░"}, {"177", "▒"}, {"178", "▓"}, {"179", "│"}, {"180", "┤"}, {"181", "Á"}, {"182", "Â"}, {"183", "À"},
-          {"184", "©"}, {"185", "╣"}, {"186", "║"}, {"187", "╗"}, {"188", "╝"}, {"189", "¢"}, {"190", "¥"}, {"191", "┐"},
-          {"192", "└"}, {"193", "┴"}, {"194", "┬"}, {"195", "├"}, {"196", "─"}, {"197", "┼"}, {"198", "ã"}, {"199", "Ã"},
-          {"200", "╚"}, {"201", "╔"}, {"202", "╩"}, {"203", "╦"}, {"204", "╠"}, {"205", "═"}, {"206", "╬"}, {"207", "¤"},
-          {"208", "ð"}, {"209", "Ð"}, {"210", "Ê"}, {"211", "Ë"}, {"212", "È"}, {"213", "ı"}, {"214", "Í"}, {"215", "Î"},
-          {"216", "Ï"}, {"217", "┘"}, {"218", "┌"}, {"219", "█"}, {"220", "▄"}, {"221", "¦"}, {"222", "Ì"}, {"223", "▀"},
-          {"224", "Ó"}, {"225", "ß"}, {"226", "Ô"}, {"227", "Ò"}, {"228", "õ"}, {"229", "Õ"}, {"230", "µ"}, {"231", "þ"},
-          {"232", "Þ"}, {"233", "Ú"}, {"234", "Û"}, {"235", "Ù"}, {"236", "ý"}, {"237", "Ý"}, {"238", "¯"}, {"239", "´"},
-          {"240", "ð"}, {"241", "±"}, {"242", "‗"}, {"243", "¾"}, {"244", "¶"}, {"245", "§"}, {"246", "÷"}, {"247", "¸"},
-          {"248", "°"}, {"249", "¨"}, {"250", "·"}, {"251", "¹"}, {"252", "³"}, {"253", "²"}, {"254", "■"}, {"255", " "}
-        };
-      }
 
-      if(use_hex) {
-        for(auto& elm : ascii_table) {
-          int decimal_val = std::stoi(elm.first);
-          std::stringstream ss;
-          ss << std::hex << std::uppercase << decimal_val;
-          elm.first = ss.str();
-        }
-      }
+        bool print_extended = false;
 
-      if(use_oct) {
-        for(auto& elm : ascii_table) {
-          int decimal_val = std::stoi(elm.first);
-          std::stringstream ss;
-          ss << std::oct << std::uppercase << decimal_val;
-          elm.first = ss.str();
-        }
-      }
+        bool use_dec = true;
+        bool use_hex = false;
+        bool use_oct = false;
 
-      for(int i = 0; i < 16; i++) {
-        int current_value = i;
-        for(int j = 0; j < 8; j++) {
-          int charnum_int;
-          if(use_dec) charnum_int = std::stoi(ascii_table[current_value].first);
-          if(use_oct) charnum_int = std::stoi(ascii_table[current_value].first, nullptr, 8);
-          if(use_hex) charnum_int = std::stoi(ascii_table[current_value].first, nullptr, 16);
-
-          std::string padded_num = ascii_table[current_value].first;
-          padded_num.resize(3, ' ');
-
-          std::string padded_str = ascii_table[current_value].second;
-          padded_str.resize(4, ' ');
-
-          if(charnum_int < 32 || charnum_int == 127) {
-            io::print(yellow);
-            io::print(padded_num);
-            io::print(" ");
-            io::print(padded_str);
-            io::print(reset);
-            io::print("    ");
-          } else {
-            io::print(green);
-            io::print(padded_num);
-            io::print(" ");
-            io::print(padded_str);
-            io::print(reset);
-            io::print("    ");
+        for(auto& arg : args) {
+          if(!io::vecContains(args, arg) && arg.starts_with("-")) {
+            info::error("Invalid argument \"" + arg + "\"");
+            return -1;
           }
-          current_value += 16;
+
+          if((arg == "-h" || arg == "--hexadecimal") && !use_oct) {
+            use_hex = true;
+            use_dec = false;
+            use_oct = false;
+          }
+
+          if((arg == "-o" || arg == "--octal") && !use_hex) {
+            use_oct = true;
+            use_dec = false;
+          }
+
+          if(arg == "-e" || arg == "--extended") {
+            print_extended = true;
+          }
         }
 
-        io::print("\n");
-      }
+        if(!print_extended) {
+          ascii_table = {
+            {"0", "NUL"}, {"1", "SOH"}, {"2", "STX"}, {"3", "ETX"}, {"4", "EOT"}, {"5", "ENQ"}, {"6", "ACK"}, {"7", "BEL"},
+            {"8", "BS"},  {"9", "TAB"}, {"10", "LF"}, {"11", "VT"}, {"12", "FF"}, {"13", "CR"}, {"14", "SO"}, {"15", "SI"},
+            {"16", "DLE"}, {"17", "DC1"}, {"18", "DC2"}, {"19", "DC3"}, {"20", "DC4"}, {"21", "NAK"}, {"22", "SYN"}, {"23", "ETB"},
+            {"24", "CAN"}, {"25", "EM"}, {"26", "SUB"}, {"27", "ESC"}, {"28", "FS"}, {"29", "GS"}, {"30", "RS"}, {"31", "US"},
+            {"32", " "}, {"33", "!"}, {"34", "\""}, {"35", "#"}, {"36", "$"}, {"37", "%"}, {"38", "&"}, {"39", "'"},
+            {"40", "("}, {"41", ")"}, {"42", "*"}, {"43", "+"}, {"44", ","}, {"45", "-"}, {"46", "."}, {"47", "/"},
+            {"48", "0"}, {"49", "1"}, {"50", "2"}, {"51", "3"}, {"52", "4"}, {"53", "5"}, {"54", "6"}, {"55", "7"},
+            {"56", "8"}, {"57", "9"}, {"58", ":"}, {"59", ";"}, {"60", "<"}, {"61", "="}, {"62", ">"}, {"63", "?"},
+            {"64", "@"}, {"65", "A"}, {"66", "B"}, {"67", "C"}, {"68", "D"}, {"69", "E"}, {"70", "F"}, {"71", "G"},
+            {"72", "H"}, {"73", "I"}, {"74", "J"}, {"75", "K"}, {"76", "L"}, {"77", "M"}, {"78", "N"}, {"79", "O"},
+            {"80", "P"}, {"81", "Q"}, {"82", "R"}, {"83", "S"}, {"84", "T"}, {"85", "U"}, {"86", "V"}, {"87", "W"},
+            {"88", "X"}, {"89", "Y"}, {"90", "Z"}, {"91", "["}, {"92", "\\"}, {"93", "]"}, {"94", "^"}, {"95", "_"},
+            {"96", "`"}, {"97", "a"}, {"98", "b"}, {"99", "c"}, {"100", "d"}, {"101", "e"}, {"102", "f"}, {"103", "g"},
+            {"104", "h"}, {"105", "i"}, {"106", "j"}, {"107", "k"}, {"108", "l"}, {"109", "m"}, {"110", "n"}, {"111", "o"},
+            {"112", "p"}, {"113", "q"}, {"114", "r"}, {"115", "s"}, {"116", "t"}, {"117", "u"}, {"118", "v"}, {"119", "w"},
+            {"120", "x"}, {"121", "y"}, {"122", "z"}, {"123", "{"}, {"124", "|"}, {"125", "}"}, {"126", "~"}, {"127", "DEL"}
+          };
+        } else {
+          ascii_table = {
+            {"128", "Ç"}, {"129", "ü"}, {"130", "é"}, {"131", "â"}, {"132", "ä"}, {"133", "à"}, {"134", "å"}, {"135", "ç"},
+            {"136", "ê"}, {"137", "ë"}, {"138", "è"}, {"139", "ï"}, {"140", "î"}, {"141", "ì"}, {"142", "Ä"}, {"143", "Å"},
+            {"144", "É"}, {"145", "æ"}, {"146", "Æ"}, {"147", "ô"}, {"148", "ö"}, {"149", "ò"}, {"150", "û"}, {"151", "ù"},
+            {"152", "ÿ"}, {"153", "Ö"}, {"154", "Ü"}, {"155", "¢"}, {"156", "£"}, {"157", "¥"}, {"158", "₧"}, {"159", "ƒ"},
+            {"160", "á"}, {"161", "í"}, {"162", "ó"}, {"163", "ú"}, {"164", "ñ"}, {"165", "Ñ"}, {"166", "ª"}, {"167", "º"},
+            {"168", "¿"}, {"169", "⌐"}, {"170", "¬"}, {"171", "½"}, {"172", "¼"}, {"173", "¡"}, {"174", "«"}, {"175", "»"},
+            {"176", "░"}, {"177", "▒"}, {"178", "▓"}, {"179", "│"}, {"180", "┤"}, {"181", "Á"}, {"182", "Â"}, {"183", "À"},
+            {"184", "©"}, {"185", "╣"}, {"186", "║"}, {"187", "╗"}, {"188", "╝"}, {"189", "¢"}, {"190", "¥"}, {"191", "┐"},
+            {"192", "└"}, {"193", "┴"}, {"194", "┬"}, {"195", "├"}, {"196", "─"}, {"197", "┼"}, {"198", "ã"}, {"199", "Ã"},
+            {"200", "╚"}, {"201", "╔"}, {"202", "╩"}, {"203", "╦"}, {"204", "╠"}, {"205", "═"}, {"206", "╬"}, {"207", "¤"},
+            {"208", "ð"}, {"209", "Ð"}, {"210", "Ê"}, {"211", "Ë"}, {"212", "È"}, {"213", "ı"}, {"214", "Í"}, {"215", "Î"},
+            {"216", "Ï"}, {"217", "┘"}, {"218", "┌"}, {"219", "█"}, {"220", "▄"}, {"221", "¦"}, {"222", "Ì"}, {"223", "▀"},
+            {"224", "Ó"}, {"225", "ß"}, {"226", "Ô"}, {"227", "Ò"}, {"228", "õ"}, {"229", "Õ"}, {"230", "µ"}, {"231", "þ"},
+            {"232", "Þ"}, {"233", "Ú"}, {"234", "Û"}, {"235", "Ù"}, {"236", "ý"}, {"237", "Ý"}, {"238", "¯"}, {"239", "´"},
+            {"240", "ð"}, {"241", "±"}, {"242", "‗"}, {"243", "¾"}, {"244", "¶"}, {"245", "§"}, {"246", "÷"}, {"247", "¸"},
+            {"248", "°"}, {"249", "¨"}, {"250", "·"}, {"251", "¹"}, {"252", "³"}, {"253", "²"}, {"254", "■"}, {"255", " "}
+          };
+        }
 
-      if(!prnt_extended) {
-        io::print("\n");
-        io::print(bg_yellow);
+        if(use_hex) {
+          for(auto& elm : ascii_table) {
+            int decimal_val = std::stoi(elm.first);
+            std::stringstream ss;
+            ss << std::hex << std::uppercase << decimal_val;
+            elm.first = ss.str();
+          }
+        }
+
+        if(use_oct) {
+          for(auto& elm : ascii_table) {
+            int decimal_val = std::stoi(elm.first);
+            std::stringstream ss;
+            ss << std::oct << std::uppercase << decimal_val;
+            elm.first = ss.str();
+          }
+        }
+
+        int max_sym_width = 0;
+        for (auto &elm : ascii_table) {
+            int w = visible_width(elm.second);
+            if (w > max_sym_width) max_sym_width = w;
+        }
+
+        for (int i = 0; i < 16; i++) {
+            int current_value = i;
+            for (int j = 0; j < 8; j++) {
+                int charnum_int;
+                if (use_dec) charnum_int = std::stoi(ascii_table[current_value].first);
+                if (use_oct) charnum_int = std::stoi(ascii_table[current_value].first, nullptr, 8);
+                if (use_hex) charnum_int = std::stoi(ascii_table[current_value].first, nullptr, 16);
+
+                // Pad numeric value to width 3
+                std::string padded_num = ascii_table[current_value].first;
+                padded_num.resize(3, ' ');
+
+                // Pad symbol to max width
+                std::string symbol = ascii_table[current_value].second;
+                int width = visible_width(symbol);
+                int pad = max_sym_width - width + 1; // +1 for spacing
+                std::string padded_str = symbol + std::string(pad, ' ');
+                if(symbol.length() == 2 && !print_extended) {
+                  padded_str += " ";
+                }
+
+                if (charnum_int < 32 || charnum_int == 127) {
+                    io::print(yellow);
+                } else {
+                    io::print(green);
+                }
+                io::print(padded_num);
+                io::print(" ");
+                io::print(padded_str);
+                io::print(reset);
+                io::print("    ");
+
+                current_value += 16;
+            }
+            io::print("\n");
+        }
+
+        if(!print_extended) {
+          io::print("\n");
+          io::print(bg_yellow);
+          io::print("  ");
+          io::print(reset);
+          io::print(" Non-Printable Characters\n");
+        }
+
+        io::print(bg_green);
         io::print("  ");
         io::print(reset);
-        io::print(" Non-Printable Characters\n");
-      }
+        io::print(" Printable Characters\n");
 
-
-      io::print(bg_green);
-      io::print("  ");
-      io::print(reset);
-      io::print(" Printable Characters\n");
-
-      return 0;
+        return 0;
     }
+
 };
 
 int main(int argc, char* argv[]) {

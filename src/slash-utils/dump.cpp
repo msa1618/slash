@@ -8,6 +8,7 @@
 
 class Dump {
   private:
+    bool use_colors = isatty(STDOUT_FILENO);
     enum class Type {
       Hex,
       Octal,
@@ -15,7 +16,7 @@ class Dump {
       Binary
     };
 
-    int dump(bool is_file, Type mode, std::string input) {
+    int dump(bool is_file, Type mode, std::string input, bool use_color) {
       std::string text;
 
       if(is_file) {
@@ -34,7 +35,8 @@ class Dump {
 
       for(int i = 0; i < text.size(); i += no_of_bytes) {
         std::stringstream ss;
-        ss << magenta << std::setw(7) << std::setfill('0');
+        if(use_color || use_colors) ss << magenta;
+        ss << std::setw(7) << std::setfill('0');
         if(mode == Type::Hex || mode == Type::Binary) ss << std::hex;
         else if(mode == Type::Octal) ss << std::oct;
         else if(mode == Type::Decimal) ss << std::dec;
@@ -68,7 +70,8 @@ class Dump {
 
         for(size_t j = 0; j < no_of_bytes && (i + j) < text.size(); ++j) {
             unsigned char c = text[i + j];
-            ss << green << (std::isprint(c) ? static_cast<char>(c) : '.') << reset;
+            if(use_color || use_colors) ss << green;
+            ss << (std::isprint(c) ? static_cast<char>(c) : '.') << reset;
         }
 
         io::print(ss.str() + "\n");
@@ -92,7 +95,8 @@ class Dump {
               {"-o", "--octal", "Dump in octal"},
               {"-d", "--decimal", "Dump in decimal"},
               {"-b", "--bin", "Dump in binary"},
-              {"-t", "--text", "The next argument is text (used for piping)"}
+              {"-t", "--text", "The next argument is text"},
+              {"-n", "--no-colo[u]r", "Don't use color"}
             },
             {
               {"dump data.bin", "Show a hexdump of data.bin"},
@@ -110,6 +114,8 @@ class Dump {
         };
 
         bool is_file = true;
+        bool use_color = false;
+
         Type mode = Type::Hex;
         std::string a;
 
@@ -123,17 +129,18 @@ class Dump {
           if(arg == "-b" || arg == "--bin") mode = Type::Binary;
           if(arg == "-o" || arg == "--octal") mode = Type::Octal;
           if(arg == "-d" || arg == "--decimal") mode = Type::Decimal;
+          if(arg == "-n" || arg == "--no-color" || arg == "--no-colour") use_color = false;
           if(!arg.starts_with("-")) a = arg;
         }
 
         if(!is_file) {
-          if(!a.empty()) return dump(false, mode, a);
+          if(!a.empty()) return dump(false, mode, a, use_color);
           else { // The argument is empty, so the user could be piping
             std::stringstream piped;
             piped << std::cin.rdbuf();
-            return dump(false, mode, piped.str());
+            return dump(false, mode, piped.str(), use_color);
           }
-        } else return dump(true, mode, a);
+        } else return dump(true, mode, a, use_color);
       }
 };
 

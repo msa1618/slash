@@ -78,21 +78,29 @@ class Textmt {
   }
 
   void print_metadata(std::string str, std::string filename = "") {
+    bool enable_colors = isatty(STDOUT_FILENO);
+    auto colorize = [&](const std::string &text, const std::string &color) {
+        return enable_colors ? color + text + reset : text;
+    };
+
     if (!filename.empty()) {
-      io::print(blue + "Filename: " + reset + filename + "\n");
+        io::print(colorize("Filename: ", blue) + filename + "\n");
     }
-    io::print(blue + "Letters: " + reset + get_chars_num(str) + "\n");
-    io::print(blue + "Words:   " + reset + get_words_num(str) + "\n");
-    io::print(blue + "Lines:   " + reset + get_lines_num(str) + "\n");
-    io::print(blue + "Number of: \n" + reset);
-    io::print(blue + "  Alphabet letters: " + reset + get_alphachars_num(str) + "\n");
-    io::print(blue + "  Numbers:    " + reset + get_digits_num(str) + "\n");
-    io::print(blue + "  Symbols:    " + reset + get_symbols_num(str) + "\n");
-    io::print(blue + "  Whitespace: " + reset + get_spaces_num(str) + "\n");
+
+    io::print(colorize("Characters: ", blue) + get_chars_num(str) + "\n");
+    io::print(colorize("Words:   ", blue) + get_words_num(str) + "\n");
+    io::print(colorize("Lines:   ", blue) + get_lines_num(str) + "\n");
+
+    io::print(colorize("Number of: \n", blue));
+    io::print(colorize("  Alphabet letters: ", blue) + get_alphachars_num(str) + "\n");
+    io::print(colorize("  Numbers:    ", blue) + get_digits_num(str) + "\n");
+    io::print(colorize("  Symbols:    ", blue) + get_symbols_num(str) + "\n");
+    io::print(colorize("  Whitespace: ", blue) + get_spaces_num(str) + "\n");
 
     std::string mu_char = most_used_char(str);
-    io::print(blue + "Most used char: " + reset + most_used_char(str) + "\n");
+    io::print(colorize("Most used char: ", blue) + mu_char + "\n");
   }
+
 
   public:
   Textmt() {}

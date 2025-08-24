@@ -68,16 +68,23 @@ class Listen {
               std::string name = event->len ? event->name : filepath;
               std::string msg;
 
+              bool enable_colors = isatty(STDOUT_FILENO);
+
+              auto colorize = [&](const std::string &text, const std::string &color) {
+                  return enable_colors ? color + text + reset : text;
+              };
+
               if (event->mask & IN_CREATE)        msg += "- Created file";
-              if (event->mask & IN_MODIFY)        msg += cyan + "- Modified file" + reset;
-              if (event->mask & IN_DELETE)        msg += red + "- Deleted file" + reset;
-              if (event->mask & IN_DELETE_SELF)   msg += red + "- Watched file deleted" + reset;
-              if (event->mask & IN_ATTRIB)        msg += yellow + "- File metadata changed" + reset;
-              if (event->mask & IN_OPEN)          msg += green + "- Opened file" + reset;
-              if (event->mask & IN_CLOSE_WRITE)   msg += blue + "- Closed file (write) " + reset;
-              if (event->mask & IN_CLOSE_NOWRITE) msg += blue + "- Closed file (no write) " + reset;
-              if (event->mask & IN_MOVED_FROM)    msg += magenta + "- Moved file from " + reset;
-              if (event->mask & IN_MOVED_TO)      msg += magenta + "- Moved file to " = reset;
+              if (event->mask & IN_MODIFY)        msg += colorize("- Modified file", cyan);
+              if (event->mask & IN_DELETE)        msg += colorize("- Deleted file", red);
+              if (event->mask & IN_DELETE_SELF)   msg += colorize("- Watched file deleted", red);
+              if (event->mask & IN_ATTRIB)        msg += colorize("- File metadata changed", yellow);
+              if (event->mask & IN_OPEN)          msg += colorize("- Opened file", green);
+              if (event->mask & IN_CLOSE_WRITE)   msg += colorize("- Closed file (write)", blue);
+              if (event->mask & IN_CLOSE_NOWRITE) msg += colorize("- Closed file (no write)", blue);
+              if (event->mask & IN_MOVED_FROM)    msg += colorize("- Moved file from", magenta);
+              if (event->mask & IN_MOVED_TO)      msg += colorize("- Moved file to", magenta);
+
 
               if (!msg.empty())
                   io::print(msg + " → " + name + "\n");

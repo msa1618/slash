@@ -6,77 +6,76 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include "../help_helper.h"
 
 class Perms  {
   private:
     std::string process_code(int code_in_octal) {
-      std::stringstream ss;
-      ss << 0 << std::oct << code_in_octal;
-      std::string code_str = ss.str();
-      if(code_str.length() != 4) {
-        info::error("Invalid octal code. It should be a 3-digit octal number.");
-        return "";
-      }
-      std::stringstream output;
-      output << blue << "Octal code: " << reset << code_str << "\n\n";
-      output << blue << "Human-readable format: " << reset;
-
-      std::string human_readable;
-
-      for(int i = 1; i < code_str.length(); i++) {
-        char c = code_str[i];
-        if(c == '0') {
-          human_readable += "---";
-        } else if(c == '1') {
-          human_readable += "--x";
-        } else if(c == '2') {
-          human_readable += "-w-";
-        } else if(c == '3') {
-          human_readable += "-wx";
-        } else if(c == '4') {
-          human_readable += "r--";
-        } else if(c == '5') {
-          human_readable += "r-x";
-        } else if(c == '6') {
-          human_readable += "rw-";
-        } else if(c == '7') {
-          human_readable += "rwx";
+        std::stringstream ss;
+        ss << 0 << std::oct << code_in_octal;
+        std::string code_str = ss.str();
+        if (code_str.length() != 4) {
+            info::error("Invalid octal code. It should be a 3-digit octal number.");
+            return "";
         }
-      }
 
-      output << human_readable << "\n";
-      output << blue << "Format:" << reset << " [owner][group][other]\n\n";
+        bool enable_colors = isatty(STDOUT_FILENO);
+        auto colorize = [&](const std::string &text, const std::string &color) {
+            return enable_colors ? color + text + reset : text;
+        };
 
-      output << blue << "Truly human-readable format: \n" << reset;
-      output << blue << "  - Owner: " << reset;
-      std::string owner;
-      for(auto& c : human_readable.substr(0, 3)) {
-        if(c == 'r') owner += "Read ";
-        else if(c == 'w') owner += "Write ";
-        else if(c == 'x') owner += "Execute ";
-      }
-      output << owner << "\n";
+        std::stringstream output;
+        output << colorize("Octal code: ", blue) << code_str << "\n\n";
+        output << colorize("Human-readable format: ", blue);
 
-      output << blue << "  - Group: " << reset;
-      std::string group;
-      for(auto& c : human_readable.substr(3, 3)) {
-        if(c == 'r') group += "Read ";
-        else if(c == 'w') group += "Write ";
-        else if(c == 'x') group += "Execute ";
-      }
-      output << group << "\n";
+        std::string human_readable;
+        for (int i = 1; i < code_str.length(); i++) {
+            switch (code_str[i]) {
+                case '0': human_readable += "---"; break;
+                case '1': human_readable += "--x"; break;
+                case '2': human_readable += "-w-"; break;
+                case '3': human_readable += "-wx"; break;
+                case '4': human_readable += "r--"; break;
+                case '5': human_readable += "r-x"; break;
+                case '6': human_readable += "rw-"; break;
+                case '7': human_readable += "rwx"; break;
+            }
+        }
 
-      output << blue << "  - Other: " << reset;
-      std::string other;
-      for(auto& c : human_readable.substr(6, 3)) {
-        if(c == 'r') other += "Read ";
-        else if(c == 'w') other += "Write ";
-        else if(c == 'x') other += "Execute ";
-      }
-      output << other << "\n";
+        output << human_readable << "\n";
+        output << colorize("Format:", blue) << " [owner][group][other]\n\n";
 
-      return output.str();
+        output << colorize("Truly human-readable format:\n", blue);
+        output << colorize("  - Owner: ", blue);
+        std::string owner;
+        for (auto &c : human_readable.substr(0, 3)) {
+            if (c == 'r') owner += "Read ";
+            else if (c == 'w') owner += "Write ";
+            else if (c == 'x') owner += "Execute ";
+        }
+        output << owner << "\n";
+
+        output << colorize("  - Group: ", blue);
+        std::string group;
+        for (auto &c : human_readable.substr(3, 3)) {
+            if (c == 'r') group += "Read ";
+            else if (c == 'w') group += "Write ";
+            else if (c == 'x') group += "Execute ";
+        }
+        output << group << "\n";
+
+        output << colorize("  - Other: ", blue);
+        std::string other;
+        for (auto &c : human_readable.substr(6, 3)) {
+            if (c == 'r') other += "Read ";
+            else if (c == 'w') other += "Write ";
+            else if (c == 'x') other += "Execute ";
+        }
+        output << other << "\n";
+
+        return output.str();
     }
+
 
     int change_permissions(std::string path, std::string mode) {
       if(std::all_of(mode.begin(), mode.end(), ::isdigit)) {
@@ -127,12 +126,20 @@ class Perms  {
 
     int exec(std::vector<std::string> args) {
      if (args.empty()) {
-        io::print("perms: set, and view file permissions\n"
-                  "usage: perms <file> [mode]\n"
-                  "flags:\n"
-                  "-g | --get:     get the current permissions of a file\n"
-                  "-s | --set:     set the permissions of a file\n"
-                  "-p | --process: process an octal code to a human-readable format\n");
+        io::print(get_helpmsg({
+          "Modify and view permissions",
+          {
+            "perms [option] <file>"
+          },
+          {
+            {"-g", "--get", "Get permissions of a file"},
+            {"-s", "--set", "Set permissions of a file, either with an octal or human-readable code"},
+            {"-p", "--process", "Process octal code to a human readable format"}
+          },
+          {},
+          "",
+          ""
+        }));
         return 0;
      }
 

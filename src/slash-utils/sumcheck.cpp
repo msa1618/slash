@@ -163,6 +163,7 @@ class Sumcheck {
             {"-m", "--md5", "Computes MD5"},
             {"-s", "--sha256", "Computes SHA-256"},
             {"-t", "--text", "The incoming argument is text and not a path"}
+            {"-n", "--no-colo[u]r", "Outputs without color"}
           },
           {
             {"sumcheck -c packet.txt", "Computes CRC32 of packet.txt"},
@@ -192,7 +193,7 @@ class Sumcheck {
       bool md5 = false;
 
       bool isfile  = true;
-      bool nocolor = false;
+      bool nocolor = isatty(STDOUT_FILENO);
       std::string a;
 
       for(auto& arg : args) {

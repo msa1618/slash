@@ -28,26 +28,28 @@ int get_terminal_width() {
 
 class Ls {
 private:
+    bool use_colors = isatty(STDOUT_FILENO);
+
     std::string unknown_file = "\uea7b";
     std::string dir          = "\uf4d3";
     std::unordered_map<std::string, std::string> icon_map = {
-        {".cpp",  "\ue646"},   // C++ blue
-        {".c",    "\ue61e"},   // C blue
-        {".toml", "\ue6b2"},  // TOML orange-ish
-        {".html", "\ue736"},  // HTML orange
-        {".yaml", "\ue8eb"},   // YAML blue
-        {".js",   "\ue781"},  // JavaScript yellow
-        {".ts",   "\ue69d"},   // TypeScript blue
-        {".css",  "\U000f031c"},   // CSS blue
-        {".rs",   "\ue7a8"},  // Rust orange
-        {".r",    "\ue881"},   // R blue
-        {".f90",  "\U000f121a"},  // Fortran orange (approx)
-        {".swift","\ue699"},  // Swift orange
-        {".java", "\ue738"},  // Java red
-        {".kt",   "\ue634"},  // Kotlin red
-        {".ttf",  "\uf031"},  // Font gray
-        {".rb",   "\ue791"},  // Ruby red/pink
-        {".lua",  "\ue620"},   // Lua teal
+        {".cpp",  "\ue646"},
+        {".c",    "\ue61e"},
+        {".toml", "\ue6b2"},
+        {".html", "\ue736"},
+        {".yaml", "\ue8eb"},
+        {".js",   "\ue781"},
+        {".ts",   "\ue69d"},
+        {".css",  "\U000f031c"},
+        {".rs",   "\ue7a8"},
+        {".r",    "\ue881"},
+        {".f90",  "\U000f121a"},
+        {".swift","\ue699"},
+        {".java", "\ue738"},
+        {".kt",   "\ue634"},
+        {".ttf",  "\uf031"},
+        {".rb",   "\ue791"},
+        {".lua",  "\ue620"},
         {".fish", "\uf489"},
         {".sh",   "\uf489"},
         {".bash", "\uf489"},
@@ -163,34 +165,38 @@ private:
                     std::string status = repo.get_file_status(relative_path);
                     git_char = status;
 
-                    if (git_char == "U") {
-                        color = blue;  // Red (unmodified)
-                    } else if (git_char == "M") {
-                        color = "\033[33m";  // Yellow (modified)
-                    } else if (git_char == "S") {
-                        color = "\033[32m";  // Green (staged)
-                    } else if (git_char == "I") {
-                        color = "\033[90m";  // Gray (ignored)
-                    } else if (git_char == "R") {
-                        color = "\033[36m";  // Cyan (renamed)
-                    } else if (git_char == "N") {
-                        color = gray;   // Reset (untracked)
-                    } else {
-                        color = "\033[0m";   // Fallback/reset
+                    if(use_colors) {
+                        if (git_char == "U") {
+                            color = blue;  // Red (unmodified)
+                        } else if (git_char == "M") {
+                            color = "\033[33m";  // Yellow (modified)
+                        } else if (git_char == "S") {
+                            color = "\033[32m";  // Green (staged)
+                        } else if (git_char == "I") {
+                            color = "\033[90m";  // Gray (ignored)
+                        } else if (git_char == "R") {
+                            color = "\033[36m";  // Cyan (renamed)
+                        } else if (git_char == "N") {
+                            color = gray;   // Reset (untracked)
+                        } else {
+                            color = "\033[0m";   // Fallback/reset
+                        }
                     }
                 } else {
                     info::error("Failed to get Git root path.");
                     return -1;
                 }
             } else {
-                switch(entry->d_type) {
-                    case DT_REG: color = green; break;
-                    case DT_DIR: color = blue; break;
-                    case DT_LNK: color = orange; break;
-                    case DT_FIFO: color = "\x1b[35m"; break;
-                    default: color = gray; 
+                if(use_colors) {
+                    switch(entry->d_type) {
+                        case DT_REG: color = green; break;
+                        case DT_DIR: color = blue; break;
+                        case DT_LNK: color = orange; break;
+                        case DT_FIFO: color = "\x1b[35m"; break;
+                        default: color = gray; 
+                    }
                 }
-    }
+            }
 
     std::stringstream fullname;
     if(with_icons) fullname << color << get_with_icon(fullpath) + " " << reset;

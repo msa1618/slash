@@ -190,6 +190,7 @@ class Ansi {
         return 0;
       }
     }
+    return 0;
   }
 };
 
