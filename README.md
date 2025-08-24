@@ -39,6 +39,53 @@ Installing slash is pretty straightforward if you have the dependencies:
 - OpenSSL
 - nlohmann::json
 
+## Installing dependencies
+### apt (Debian)
+```sh
+sudo apt update
+sudo apt install -y cmake g++ git build-essential pkg-config nlohmann-json3-dev libgit2-dev libboost-regex-dev libssl-dev
+```
+
+### pacman (Arch btw)
+```sh
+sudo pacman -Syu
+sudo pacman -Syu cmake gcc git base-devel pkgconf nlohmann-json libgit2 boost openssl
+```
+### dnf (Fedora)
+```sh
+sudo dnf check-update
+sudo dnf upgrade -y
+sudo dnf install -y cmake gcc-c++ git make automake autoconf pkgconf nlohmann-json-devel libgit2-devel boost-devel openssl-devel
+```
+
+### zypper (OpenSUSE)
+```sh
+sudo zypper refresh
+sudo zypper update -y
+sudo zypper install -y cmake gcc-c++ git make automake autoconf pkg-config nlohmann-json-devel libgit2-devel libboost_regex-devel libopenssl-devel
+```
+
+### emerge (Gentoo)
+```sh
+sudo emerge --sync
+sudo emerge --update --deep --newuse @world
+sudo emerge --ask dev-util/cmake sys-devel/gcc dev-vcs/git sys-devel/automake sys-devel/autoconf dev-util/pkgconf dev-libs/nlohmann_json dev-libs/libgit2 dev-libs/boost dev-libs/openssl
+```
+
+### pkg (Termux)
+```sh
+pkg update
+pkg upgrade
+pkg install cmake clang git make pkg-config nlohmann-json libgit2 boost openssl
+```
+
+### brew (MacOS, can also work in Linux)
+```sh
+brew update
+brew upgrade
+brew install cmake git pkg-config nlohmann-json libgit2 boost openssl
+```
+
 ## Unix-based systems
 1. Download the entire source code and change your working directory to the root of the source code
 2. Compile `install_slash.cpp` with the following command:
@@ -54,20 +101,24 @@ After installation, you may delete the slash source code and the installer safel
 slash does not support Windows directly. You have to use the Windows Subsystem for Linux. Maybe someday though..
 
 # Uninstallation
-To uninstall slash, simply delete the directory `~/.slash` and also `/usr/bin/slash`
+To uninstall slash, simply delete the directory `~/.slash` and also `/usr/local/bin/slash`
 
 # Screenshots
 
 ## slash-utils
-<img src="screenshots/ls.png" alt="Image 1" width="600"/>
-<img src="screenshots/csv.png" alt="Image 1" width="600"/> <br>
-<img src="screenshots/ansi.png" alt="Image 1" width="600"/>
-<img src="screenshots/acart.png" alt="Image 1" width="600"/> <br>
-<img src="screenshots/dump.png" alt="Image 1" width="600"/> <br>
-<img src="screenshots/listen.png" alt="Image 1" width="600"/>
+<img src="screenshots/ls.png" width="600"/>
+<img src="screenshots/csv.png" width="600"/> <br>
+<img src="screenshots/ansi.png" width="600"/>
+<img src="screenshots/acart.png" width="600"/> <br>
+<img src="screenshots/dump.png" width="600"/>
+<img src="screenshots/listen.png" width="600"/> <br>
+
+## slash
+
+<img src="screenshots/slash.png" width="600">
 
 # A missing feature?
 Just open an issue. If I really like it, I'll implement it within a day or two.
 
 # Want to support me?
-You can donate to me at [my BuyMeACoffee Page](https://buymeacoffee.com/msa_1618). Even if it's just a dollar, it would really encourage me to continue and I would greatly appreciate it.
+GH Sponsors isn't open right now. If you wish to sponsor me, email me at msa4gh@gmail.com and I'll see if I can open it
