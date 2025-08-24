@@ -7,6 +7,7 @@
 #include "../abstractions/info.h"
 #include "execution.h"
 #include "parser.h"
+#include "cnf.h"
 
 void enable_canonical_mode() {
     struct termios t;
@@ -80,6 +81,7 @@ std::string interpret_escapes(const std::string& input) {
 }
 
 void execute_startup_commands() {
+  fill_commands();
   auto startup_commands = io::read_file(slash_dir + "/.slash_startup_commands");
 
   if(std::holds_alternative<int>(startup_commands)) {
