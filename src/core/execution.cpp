@@ -238,7 +238,32 @@ int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std:
 
 
 int execute(std::vector<std::string> parsed_args, std::string input, bool bg, RedirectInfo rinfo = {}, ExecFlags info = {}) {
-  if (parsed_args.empty()) return 0;
+  if(parsed_args.empty()) return 0;
+
+  std::vector<std::string> working_args = parsed_args;
+  for (size_t i = 0; i < working_args.size(); ) {
+      std::string& s = working_args[i];
+      bool is_opr = s == "@e" || s == "@o" || s == "@O" || s == "@t" || s == "@r" ||
+                    s == ">" || s == ">>" || s == "1>" || s == "1>>" ||
+                    s == "2>" || s == "2>>" ||
+                    s == "<";
+      if (is_opr) {
+          if (i + 1 < working_args.size() &&
+              (s == ">" || s == ">>" || s == "1>" || s == "1>>" ||
+              s == "2>" || s == "2>>" || s == "<")) {
+              working_args.erase(working_args.begin() + i, working_args.begin() + i + 2);
+          } else {
+              working_args.erase(working_args.begin() + i);
+          }
+      } else {
+          ++i;
+      }
+  }
+
+  if (working_args.empty()) {
+    info::error("No command specified.");
+    return -1;
+  }
 
   std::string cmd = parsed_args[0];
 
@@ -436,12 +461,13 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
       }
 
 
-      if (rinfo.err_to_in)   dup2(STDERR_FILENO, STDIN_FILENO);
-      if (rinfo.err_to_out)  dup2(STDERR_FILENO, STDOUT_FILENO);
-      if (rinfo.out_to_in)   dup2(STDOUT_FILENO, STDIN_FILENO);
-      if (rinfo.out_to_err)  dup2(STDOUT_FILENO, STDERR_FILENO);
-      if (rinfo.in_to_out)   dup2(STDIN_FILENO, STDOUT_FILENO);
-      if (rinfo.in_to_err)   dup2(STDIN_FILENO, STDERR_FILENO);
+      if (rinfo.err_to_in)   dup2(STDIN_FILENO, STDERR_FILENO);
+      if (rinfo.err_to_out)  dup2(STDOUT_FILENO, STDERR_FILENO);
+      if (rinfo.out_to_in)   dup2(STDIN_FILENO, STDOUT_FILENO);
+      if (rinfo.out_to_err)  dup2(STDERR_FILENO, STDOUT_FILENO);
+      if (rinfo.in_to_out)   dup2(STDOUT_FILENO, STDIN_FILENO);
+      if (rinfo.in_to_err)   dup2(STDERR_FILENO, STDIN_FILENO);
+
     }
 
     if(!input_redfile.empty()) {
