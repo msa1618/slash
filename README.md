@@ -14,11 +14,11 @@ All the basics of a shell were added, and finished on 17 June 2025. Slash is not
 - Easily customizable syntax highlighting and prompt with JSON, for a terminal that feels like home
 - A rich suite of feature-rich utilties built in (`slash-utils`)
 - Helpful, short, and visually pleasing help messages
-- 
 
-# Known bugs
-- Flickering prompts and no multiline support yet (only for one-line prompts)
-- "Illegal instruction" in WSL systems (i have no idea why. If you know the solution please help out)
+### Soon to come
+- POSIX-compliant scripting (Yeah, portability)
+- Command substitution
+- More slash-utils
 
 ## The Slash Philosophy
 Every Slash utility shas to follow a unified philosophy:
@@ -89,10 +89,9 @@ brew install cmake git pkg-config nlohmann-json libgit2 boost openssl
 ## Unix-based systems
 1. Download the entire source code and change your working directory to the root of the source code
 2. Compile `install_slash.cpp` with the following command:
-   ```g++ install_slash.cpp -o install_slash```
+   ```g++ install_slash.cpp -o is```
 3. Run the installer with:
-   ```./install_slash```
-   If the installer fails, most likely in moving the slash binary to /usr/local/bin, rerun the installer with elevated privileges (`sudo`)
+   ```./is```
 4. Follow the instructions and slash should be installed!  
 
 After installation, you may delete the slash source code and the installer safely.
@@ -117,8 +116,11 @@ To uninstall slash, simply delete the directory `~/.slash` and also `/usr/local/
 
 <img src="screenshots/slash.png" width="600">
 
-# A missing feature?
-Just open an issue. If I really like it, I'll implement it within a day or two.
+# Found a bug?
+Please just take 5 minutes of your life to open an issue and make slash better for everyone.
 
 # Want to support me?
 GH Sponsors isn't open right now. If you wish to sponsor me, email me at msa4gh@gmail.com and I'll see if I can open it
+
+# Known bugs
+- Flickering prompts and no multiline support yet (only for one-line prompts)
