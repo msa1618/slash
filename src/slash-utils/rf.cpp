@@ -27,7 +27,7 @@ std::string tab_to_spaces(std::string content, int indent) {
   return content;
 }
 
-class Lynx {
+class Rf {
   private:
     std::vector<std::pair<std::string, std::string>> filter_duplicates(std::vector<std::pair<std::string, std::string>> input) {
       std::unordered_set<std::string> seen;
@@ -185,15 +185,15 @@ class Lynx {
     }
 
   public:
-    Lynx() {};
+    Rf() {};
 
     int exec(std::vector<std::string> args) {
       if (args.empty()) {
         io::print(get_helpmsg({
 					"Prints file content with syntax highlighting and various options",
 					{
-						"lynx <file>",
-						"lynx [options] <file>"
+						"rf <file>",
+						"rf [options] <file>"
 					},
 					{
 						{"-r", "--reverse-lines", "Reverse lines when printing"},
@@ -209,9 +209,9 @@ class Lynx {
 						{"", "--raw", "Print plain content only"},
 					},
 					{
-						{"lynx main.cpp", "Print main.cpp's content"}, 
-						{"lynx -t 4 script.ts", "Print script.ts but with tab size 4"},
-						{"lynx -s mess", "Sort mess"}
+						{"rf main.cpp", "Print main.cpp's content"}, 
+						{"rf -t 4 script.ts", "Print script.ts but with tab size 4"},
+						{"rf -s mess", "Sort mess"}
 					},
 					"",
 					""
@@ -311,13 +311,13 @@ class Lynx {
 };
 
 int main(int argc, char* argv[]) {
-  Lynx lynx;
+  Rf rf;
 
   std::vector<std::string> args;
   for (int i = 1; i < argc; ++i) {
     args.emplace_back(argv[i]);
   }
 
-  lynx.exec(args);
+  rf.exec(args);
   return 0;
 }

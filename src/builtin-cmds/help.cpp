@@ -116,7 +116,6 @@ int slash_utils_help() {
     {"fnd", "Find files in a specified directory by their name, extension, type, inode ID, etc"},
     {"listen", "Listen for changes in a file, like creation, modification, and deletion"},
     {"ls", "List all files and directories in a specified directory. Has Git support and trees"},
-    {"lynx", "Read files with syntax highlighting, Git support, and many options, like printing in reverse or sorting."},
     {"md", "Render Markdown files in a pretty format"},
     {"mkdir", "Create new directory"},
     {"move", "Move a file or directory from one place to another, with cross-filesystem and undoing support"},
@@ -124,6 +123,7 @@ int slash_utils_help() {
     {"pager", "Used for pagination"},
     {"perms", "View and change permissions"},
     {"ren", "Rename files and directories"},
+    {"rf", "Read files with syntax highlighting, Git support, and many options, like printing in reverse or sorting."},
     {"srch", "A TUI finder for environmental variables, history, and files. It's like a file explorer for files"},
     {"sumcheck", "Print VRC, LRC, CRC32, MD5, or SHA-256 of files or text"},
     {"textmt", "Get various metadata about files or text, like amount of characters, most used character.."}

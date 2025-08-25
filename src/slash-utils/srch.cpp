@@ -309,7 +309,7 @@ class Srch {
         {"more", "\U000f0bb0"},
         {"cat", "\uea7b"},
         {"bat", "\uea7b"},
-        {"lynx", "\uea7b"},
+        {"rf", "\uea7b"},
         {"sumcheck", "\U000f0483"},
         {"md5sum", "\U000f0483"},
         {"sha256sum", "\U000f0483"},

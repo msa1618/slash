@@ -468,7 +468,7 @@ int install() {
         "g++ -std=c++20 textmt.cpp -o " + home + "/.slash/slash-utils/textmt -L" + home + "/.slash/slash-utils -lslashutils",
         "g++ -std=c++20 netinfo.cpp -o " + home + "/.slash/slash-utils/netinfo -L" + home + "/.slash/slash-utils -lslashutils",
         "g++ -std=c++20 ren.cpp -o " + home + "/.slash/slash-utils/ren -L" + home + "/.slash/slash-utils -lslashutils",
-        "g++ -std=c++20 lynx.cpp -o " + home + "/.slash/slash-utils/lynx -L" + home + "/.slash/slash-utils -lslashutils -lgit2",
+        "g++ -std=c++20 rf.cpp -o " + home + "/.slash/slash-utils/rf -L" + home + "/.slash/slash-utils -lslashutils -lgit2",
         "g++ -std=c++20 srch.cpp -o " + home + "/.slash/slash-utils/srch -L" + home + "/.slash/slash-utils -lslashutils",
         "g++ -std=c++20 md.cpp -o " + home + "/.slash/slash-utils/md -L" + home + "/.slash/slash-utils -lslashutils"
     };
