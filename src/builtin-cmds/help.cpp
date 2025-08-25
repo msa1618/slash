@@ -15,7 +15,7 @@ int help() {
   ss << red << "  • History: " << reset << "  ~/.slash/.slash_history\n";
   ss << red << "  • Aliases: " << reset << "  ~/.slash/.slash_aliases\n";
   ss << red << "  • Variables: " << reset << "~/.slash/.slash_variables\n";
-  ss << red << "  • Startup: " << reset << "~/.slash/.slash_startup_commands\n\n";
+  ss << red << "  • Startup: " << reset << "~/.slash/.slashrc\n\n";
 
   ss << red << "  • Prompt: " << reset << "~/.slash/config/prompts/" << gray << "<selected_prompt>\n";
   ss << red << "  • Settings: " << reset << "~/.slash/config/settings.json\n\n";

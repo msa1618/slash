@@ -369,10 +369,10 @@ int install() {
     print("[Setup] Creating .slash_variables\n");
     if (create_file(slash_path + "/.slash_variables", false) != 0) return 1;
 
-    print("[Setup] Creating .slash_startup_commands\n");
-    if (create_file(slash_path + "/.slash_startup_commands", false) != 0) return 1;
+    print("[Setup] Creating .slashrc\n");
+    if (create_file(slash_path + "/.slashrc", false) != 0) return 1;
 
-    if (overwrite_file(slash_path + "/.slash_startup_commands", "slash-greeting") != 0) return 1;
+    if (overwrite_file(slash_path + "/.slashrc", "slash-greeting") != 0) return 1;
 
     print("[Setup] Creating ~/.slash/config\n");
     if (create_file(slash_path + "/config", true) != 0) return 1;

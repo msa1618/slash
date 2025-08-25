@@ -82,10 +82,10 @@ std::string interpret_escapes(const std::string& input) {
 
 void execute_startup_commands() {
   fill_commands();
-  auto startup_commands = io::read_file(slash_dir + "/.slash_startup_commands");
+  auto startup_commands = io::read_file(slash_dir + "/.slashrc");
 
   if(std::holds_alternative<int>(startup_commands)) {
-    info::error(strerror(errno), errno, ".slash_startup_commands");
+    info::error(strerror(errno), errno, ".slashrc");
     return;
   }
 
