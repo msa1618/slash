@@ -24,6 +24,7 @@
 #include <algorithm>
 #include "jobs.h"
 #include "startup.h"
+#include "exiter.h"
 
 #pragma region helpers
 
@@ -545,27 +546,7 @@ std::variant<std::string, int> read_input(int& history_index) {
 
     if(c == 4) {
       if(!buffer.empty()) continue;
-
-        if(!JobCont::jobs.empty()) {
-            std::vector<JobCont::Job> non_completed_jobs;
-            for(auto& job : JobCont::jobs) {
-                if(job.jobstate != JobCont::State::Completed) non_completed_jobs.push_back(job);
-            }
-            if(!non_completed_jobs.empty()) {
-                std::string first = JobCont::jobs.size() == 1 ? "There is 1 uncompleted job." : "There are " + std::to_string(JobCont::jobs.size()) + " uncompleted jobs.";
-                info::warning(first + " Are you sure you want to exit slash? (Y/N): ");
-                char c;
-                ssize_t bytesRead = read(STDIN_FILENO, &c, 1);
-                if(bytesRead < 0) {
-                    info::error("Failed to read stdin: " + std::string(strerror(errno)));
-                    return read_input(history_index);
-                }
-                io::print("\n");
-                if(tolower(c) != 'y') {
-                    return read_input(history_index);
-                }
-            }
-        }
+        if(slash_exit(true) != 1) return "";
 
         io::print(red + "EOF" + reset);
         io::print("\n");

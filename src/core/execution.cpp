@@ -20,6 +20,7 @@
 #include "../builtin-cmds/jobs.h"
 #include "cnf.h"
 #include <algorithm>
+#include "exiter.h"
 
 #pragma region helpers
 
@@ -156,7 +157,7 @@ std::string message(int sig, bool core_dumped) {
     }
 }
 
-int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std::chrono::_V2::system_clock::time_point start) {
+int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, bool time, std::chrono::_V2::system_clock::time_point start) {
     struct sigaction in{};
     in.sa_handler = handle_sigint;
     sigemptyset(&in.sa_mask);
@@ -181,7 +182,7 @@ int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std:
         pid_t result = waitpid(pid, &status, WUNTRACED | WCONTINUED);
     if (result == -1) break; // no more children
 
-        if((WIFEXITED(status) || WIFSIGNALED(status)) && flags.time) {
+        if((WIFEXITED(status) || WIFSIGNALED(status)) && (flags.time || time)) {
       auto end = std::chrono::high_resolution_clock::now();
       auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
@@ -375,29 +376,8 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
   }
 
   if (parsed_args[0] == "exit") {
-        if(!JobCont::jobs.empty()) {
-            std::vector<JobCont::Job> non_completed_jobs;
-            for(auto& job : JobCont::jobs) {
-                if(job.jobstate != JobCont::State::Completed) non_completed_jobs.push_back(job);
-            }
-            if(!non_completed_jobs.empty()) {
-                std::string first = JobCont::jobs.size() == 1 ? "There is 1 uncompleted job." : "There are " + std::to_string(JobCont::jobs.size()) + " uncompleted jobs.";
-                info::warning(first + " Are you sure you want to exit slash? (Y/N): ");
-                char c;
-                ssize_t bytesRead = read(STDIN_FILENO, &c, 1);
-                if(bytesRead < 0) {
-                    info::error("Failed to read stdin: " + std::string(strerror(errno)));
-                    return -1;
-                }
-                io::print("\n");
-                if(tolower(c) != 'y') {
-                    return 0;
-                }
-            }
-        }
-         enable_canonical_mode();
-        exit(0);
-    }
+    return slash_exit();      
+  }
 
     if (parsed_args[0] == "cd") {
         parsed_args.erase(parsed_args.begin());
@@ -521,7 +501,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     setpgid(pid, pid);
 
     if (!bg) {
-      return wait_foreground_job(pid, cmd, info_to_use, start);
+      return wait_foreground_job(pid, cmd, info_to_use, time, start);
     } else {
         io::print(yellow + "[Process running in the background, pid " + std::to_string(pid) + "]\n" + reset);
                 enable_raw_mode();    

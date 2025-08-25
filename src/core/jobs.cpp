@@ -83,8 +83,8 @@ int JobCont::resume_job(int pgid) {
 
     JobCont::update_job(pgid, JobCont::State::Running);
 
-    int rc = wait_foreground_job(pgid, jobs[index].name, {jobs[index].flags.exit_code, jobs[index].flags.repeat, jobs[index].flags.time}, jobs[index].start);
-
+    int rc = wait_foreground_job(pgid, jobs[index].name, {jobs[index].flags.exit_code, jobs[index].flags.repeat, jobs[index].flags.time}, jobs[index].flags.time, jobs[index].start);
+  
     tcsetpgrp(STDIN_FILENO, getpgrp());
     signal(SIGTTOU, SIG_DFL);
 
