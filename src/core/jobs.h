@@ -10,7 +10,7 @@
 #include "execution.h"
 
 namespace JobCont {
-  enum class State {Stopped, Running, Completed, Interrupted, Wakekill};
+  enum class State {Stopped, Running, Completed, Interrupted, Terminated, Wakekill};
 
   struct Job {
     int pgid;
@@ -27,11 +27,12 @@ namespace JobCont {
   void update_job(int pgid, State state);
   void remove_job(int pgid);
   void clear_jobs();
+  int get_running_jobs();
 
   int resume_job(int pgid);
   void kill_job(int pgid);
 
-  void send_to_background(int pid);
+  std::string get_jobs_in_csv();
 
   void print_jobs();
 }

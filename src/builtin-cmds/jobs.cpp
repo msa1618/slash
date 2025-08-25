@@ -41,6 +41,9 @@ int jobs(std::vector<std::string>& args) {
             custom << yellow << "  • Interrupted: " << reset << "The job has been interrupted by a signal like SIGINT\n";
             custom << yellow << "  • Wakekill:    " << reset << "The job has been killed by a deadly signal like SIGKILL,\n                 so resuming it will result in its death\n";
 
+            custom << green << "Note\n" << reset;
+            custom << "  When piping to a file or another command, the job table will\n  be in CSV\n";
+
             io::print(get_helpmsg({
                 "Manage, kill, and resume slash jobs",
                 {

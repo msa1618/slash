@@ -217,7 +217,8 @@ int wait_foreground_job(pid_t pid, const std::string& cmd, ExecFlags flags, std:
             int sig = WTERMSIG(status);
             io::print(message(sig, WCOREDUMP(status)) + "\n");
             tcsetpgrp(STDIN_FILENO, getpgrp());
-            JobCont::update_job(pid, JobCont::State::Interrupted);
+            if(sig == SIGINT || sig == SIGQUIT || sig == SIGHUP) JobCont::update_job(pid, JobCont::State::Interrupted);
+            else JobCont::update_job(pid, JobCont::State::Terminated);
             
             return 128 + sig;
         }
@@ -421,7 +422,6 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
   if(bg) {
     JobCont::add_job(pid, parsed_args[0], JobCont::State::Running, info_to_use, start);
     job_index = JobCont::jobs.size() - 1;
-    info::debug("dsa");
   }
 
   if (pid == 0) {
@@ -537,7 +537,8 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
                         } else if (WIFSIGNALED(status)) {
                             int sig = WTERMSIG(status);
                             msg = orange + "[Background process " + cmd + " terminated by signal " + std::to_string(sig) + "]\n" + reset;
-                                            JobCont::update_job(pid, JobCont::State::Interrupted);
+                            if(sig == SIGINT || sig == SIGQUIT || sig == SIGHUP) JobCont::update_job(pid, JobCont::State::Interrupted);
+                            else JobCont::update_job(pid, JobCont::State::Terminated);
                         }
                         io::print(msg);
                     }
