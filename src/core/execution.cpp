@@ -68,46 +68,103 @@ int save_to_history(std::vector<std::string> parsed_arg, std::string input) {
 
 std::string get_signal_name(int signal) {
     static const std::unordered_map<int, std::string> signal_names = {
-        {SIGHUP, "SIGHUP"},
-        {SIGINT, "SIGINT"},
-        {SIGQUIT, "SIGQUIT"},
-        {SIGILL, "SIGILL"},
-        {SIGTRAP, "SIGTRAP"},
-        {SIGABRT, "SIGABRT"},
-    #ifdef SIGIOT
-        {SIGIOT, "SIGIOT"},
-    #endif
-        {SIGBUS, "SIGBUS"},
-        {SIGFPE, "SIGFPE"},
-        {SIGKILL, "SIGKILL"},
-        {SIGUSR1, "SIGUSR1"},
-        {SIGSEGV, "SIGSEGV"},
-        {SIGUSR2, "SIGUSR2"},
-        {SIGPIPE, "SIGPIPE"},
-        {SIGALRM, "SIGALRM"},
-        {SIGTERM, "SIGTERM"},
-    #ifdef SIGSTKFLT
-        {SIGSTKFLT, "SIGSTKFLT"},
-    #endif
-        {SIGCHLD, "SIGCHLD"},
-        {SIGCONT, "SIGCONT"},
-        {SIGSTOP, "SIGSTOP"},
-        {SIGTSTP, "SIGTSTP"},
-        {SIGTTIN, "SIGTTIN"},
-        {SIGTTOU, "SIGTTOU"},
-        {SIGURG, "SIGURG"},
-        {SIGXCPU, "SIGXCPU"},
-        {SIGXFSZ, "SIGXFSZ"},
-        {SIGVTALRM, "SIGVTALRM"},
-        {SIGPROF, "SIGPROF"},
-        {SIGWINCH, "SIGWINCH"},
-        {SIGIO, "SIGIO"},
-    #ifdef SIGPWR
-        {SIGPWR, "SIGPWR"},
-    #endif
-    #ifdef SIGSYS
-        {SIGSYS, "SIGSYS"},
-    #endif
+#ifdef SIGHUP
+    {SIGHUP, "SIGHUP"},
+#endif
+#ifdef SIGINT
+    {SIGINT, "SIGINT"},
+#endif
+#ifdef SIGQUIT
+    {SIGQUIT, "SIGQUIT"},
+#endif
+#ifdef SIGILL
+    {SIGILL, "SIGILL"},
+#endif
+#ifdef SIGTRAP
+    {SIGTRAP, "SIGTRAP"},
+#endif
+#ifdef SIGABRT
+    {SIGABRT, "SIGABRT"},
+#endif
+#ifdef SIGIOT
+    {SIGIOT, "SIGIOT"},
+#endif
+#ifdef SIGBUS
+    {SIGBUS, "SIGBUS"},
+#endif
+#ifdef SIGFPE
+    {SIGFPE, "SIGFPE"},
+#endif
+#ifdef SIGKILL
+    {SIGKILL, "SIGKILL"},
+#endif
+#ifdef SIGUSR1
+    {SIGUSR1, "SIGUSR1"},
+#endif
+#ifdef SIGSEGV
+    {SIGSEGV, "SIGSEGV"},
+#endif
+#ifdef SIGUSR2
+    {SIGUSR2, "SIGUSR2"},
+#endif
+#ifdef SIGPIPE
+    {SIGPIPE, "SIGPIPE"},
+#endif
+#ifdef SIGALRM
+    {SIGALRM, "SIGALRM"},
+#endif
+#ifdef SIGTERM
+    {SIGTERM, "SIGTERM"},
+#endif
+#ifdef SIGSTKFLT
+    {SIGSTKFLT, "SIGSTKFLT"},
+#endif
+#ifdef SIGCHLD
+    {SIGCHLD, "SIGCHLD"},
+#endif
+#ifdef SIGCONT
+    {SIGCONT, "SIGCONT"},
+#endif
+#ifdef SIGSTOP
+    {SIGSTOP, "SIGSTOP"},
+#endif
+#ifdef SIGTSTP
+    {SIGTSTP, "SIGTSTP"},
+#endif
+#ifdef SIGTTIN
+    {SIGTTIN, "SIGTTIN"},
+#endif
+#ifdef SIGTTOU
+    {SIGTTOU, "SIGTTOU"},
+#endif
+#ifdef SIGURG
+    {SIGURG, "SIGURG"},
+#endif
+#ifdef SIGXCPU
+    {SIGXCPU, "SIGXCPU"},
+#endif
+#ifdef SIGXFSZ
+    {SIGXFSZ, "SIGXFSZ"},
+#endif
+#ifdef SIGVTALRM
+    {SIGVTALRM, "SIGVTALRM"},
+#endif
+#ifdef SIGPROF
+    {SIGPROF, "SIGPROF"},
+#endif
+#ifdef SIGWINCH
+    {SIGWINCH, "SIGWINCH"},
+#endif
+#ifdef SIGIO
+    {SIGIO, "SIGIO"},
+#endif
+#ifdef SIGPWR
+    {SIGPWR, "SIGPWR"},
+#endif
+#ifdef SIGSYS
+    {SIGSYS, "SIGSYS"},
+#endif
+
     };
 
     auto it = signal_names.find(signal);
