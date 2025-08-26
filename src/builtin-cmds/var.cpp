@@ -115,6 +115,42 @@ void create_variable(std::string name, std::string value) {
   }
 }
 
+std::variant<std::string, int> get_value(std::string name) {
+    for(auto& v : temp_vars) {
+        std::string var_name = v.name;
+        if(var_name.starts_with("$")) var_name.erase(var_name.begin());
+        if(var_name == name) return v.value;
+    }
+
+    std::string home = getenv("HOME");
+    std::string varfile = home + "/.slash/.slash_variables";
+
+    auto content = io::read_file(varfile);
+    if(!std::holds_alternative<std::string>(content)) {
+        info::error("Failed to open .slash_variables", errno);
+        return -1;
+    }
+
+    std::vector<std::string> lines = io::split(std::get<std::string>(content), "\n");
+    for(auto& line : lines) {
+        if(line.starts_with("$" + name + " = ")) {
+            auto var_and_value = io::split(line, " = ");
+            if(var_and_value.size() == 2) {
+                std::string val = var_and_value[1];
+                if(val.size() >= 2 && val.front() == '\"' && val.back() == '\"') {
+                    return val.substr(1, val.size() - 2);
+                }
+            }
+        }
+    }
+
+    char* env_var = getenv(name.c_str());
+    if(env_var != nullptr) return std::string(env_var);
+
+    return -1;
+}
+
+
 int var(std::vector<std::string> args) {
   if(args.empty()) {
     io::print(get_helpmsg({
