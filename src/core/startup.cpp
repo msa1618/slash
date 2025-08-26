@@ -89,6 +89,9 @@ void execute_startup_commands() {
     return;
   }
 
+  std::string new_s = (getenv("LD_LIBRARY_PATH") != nullptr ? getenv("LD_LIBRARY_PATH") : "") + std::string(":") + std::string(getenv("HOME")) + "/.slash/slash-utils";
+  setenv("LD_LIBRARY_PATH", new_s.c_str(), 1);
+
   std::vector<std::string> lines = io::split(std::get<std::string>(startup_commands), "\n");
   for(auto& command : lines) {
     command = interpret_escapes(command);

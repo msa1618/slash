@@ -19,6 +19,8 @@ find_package(Boost REQUIRED COMPONENTS regex)
 
 add_executable(slash
         src/main.cpp
+        src/core/exiter.h
+        src/core/exiter.cpp
         src/core/jobs.cpp
         src/core/jobs.h
         src/builtin-cmds/help.h
