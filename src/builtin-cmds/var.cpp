@@ -3,6 +3,9 @@
 #include <filesystem>
 #include <algorithm>
 #include "../help_helper.h"
+#include "../cmd_highlighter.h"
+
+std::vector<Variable> temp_vars;
 
 void list_variables() {
   std::string home = getenv("HOME");
@@ -22,17 +25,36 @@ void list_variables() {
   for(auto& var : vars) {
     if(var.length() > longest_var_length) longest_var_length = var.length();
   }
-
-  for(int i = 0; i < vars.size(); i++) {
-    std::vector<std::string> var_and_value = io::split(vars[i], " = ");
-    if(var_and_value.size() != 2) {
-      info::error("Wrong line syntax on line " + std::to_string(i + 1));
-      continue;
-    }
-
-    var_and_value[0].resize(longest_var_length, ' ');
-    io::print(var_and_value[0] + "= " + var_and_value[1] + "\n");
+  for(auto& var : temp_vars) {
+    if(var.name.length() > longest_var_length) longest_var_length = var.name.length();
   }
+
+  if(!temp_vars.empty()) {
+    io::print(magenta + bold + "Temporary variables\n" + reset);
+    for(auto& v : temp_vars) {
+      v.name.resize(longest_var_length, ' ');
+      io::print("  " + highl(v.name) + " = " + v.value + "\n");
+    }
+    io::print("\n");
+  }
+
+  if(!vars.empty()) {
+    io::print(green + bold + "Saved variables\n" + reset);
+    for(int i = 0; i < vars.size(); i++) {
+      std::vector<std::string> var_and_value = io::split(vars[i], " = ");
+      if(var_and_value.size() != 2) {
+        info::error("Wrong line syntax on line " + std::to_string(i + 1));
+        continue;
+      }
+
+      var_and_value[0].resize(longest_var_length, ' ');
+      io::print(highl(var_and_value[0]) + "= " + var_and_value[1] + "\n");
+    }
+  }
+}
+
+void create_temp_var(std::string name, std::string value) {
+  temp_vars.push_back({name, value});
 }
 
 void create_variable(std::string name, std::string value) {
@@ -40,7 +62,7 @@ void create_variable(std::string name, std::string value) {
     info::error("Variable cannot contain spaces!");
     return;
   }
-  std::string line = "$(" + name + ") = \"" + value + "\"";
+  std::string line = "$" + name + " = \"" + value + "\"";
 
   std::string home = getenv("HOME");
   std::string varfile = home + "/.slash/.slash_variables";
@@ -56,7 +78,7 @@ void create_variable(std::string name, std::string value) {
 
   bool exists = false;
   for (auto &l : lines) {
-    if (l.starts_with("$(" + name + ") = ")) {
+    if (l.starts_with("$" + name + " = ")) {
       exists = true;
       break;
     }
@@ -93,39 +115,6 @@ void create_variable(std::string name, std::string value) {
   }
 }
 
-std::variant<std::string, int> get_value(std::string name) {
-  std::string home = getenv("HOME");
-  std::string varfile = home + "/.slash/.slash_variables";
-
-  auto content = io::read_file(varfile);
-  if(!std::holds_alternative<std::string>(content)) {
-    std::string error = std::string("Failed to open .slash_variables: ") + strerror(errno);
-    info::error(error, errno);
-    return -1;
-  }
-
-  std::vector<std::string> lines = io::split(std::get<std::string>(content), "\n");
-  for(auto& line : lines) {
-    if(line.starts_with("$(" + name + ") = ")) {
-      auto var_and_value = io::split(line, " = ");
-      std::string val = var_and_value[1];
-      if(val.size() >= 2 && val.front() == '\"' && val.back() == '\"') {
-        val = val.substr(1, val.size() - 2);
-      } else {
-        info::error("Variable must start with quotes. You probably edited .slash_variables manually.");
-        return -1;
-      }
-      return val;
-    }
-  }
-
-  char* env_var = getenv(name.c_str());
-  if(env_var != nullptr) return env_var;
-
-  info::error("Could not find variable " + name + ".");
-  return "";
-}
-
 int var(std::vector<std::string> args) {
   if(args.empty()) {
     io::print(get_helpmsg({
@@ -137,6 +126,7 @@ int var(std::vector<std::string> args) {
       {
         {"-l", "--list", "List all variables"},
         {"-c", "--create", "Create a variable"},
+        {"-t", "--temp", "Create temporary variable, discarded after slash exit"},
         {"-g", "--get", "Get a variable's value"}
       },
       {
@@ -148,8 +138,8 @@ int var(std::vector<std::string> args) {
   }
 
   std::vector<std::string> validArgs = {
-    "-l", "-c", "-g",
-    "--list", "--create", "--get"
+    "-l", "-c", "-g", "-t",
+    "--list", "--create", "--get", "--temp"
   };
 
   for(int i = 0; i < args.size(); i++) {
@@ -165,10 +155,19 @@ int var(std::vector<std::string> args) {
 
     if(args[i] == "-c" || args[i] == "--create") {
       if(!(i + 1 < args.size() && i + 2 < args.size())) {
-        info::error("Invalid arguments!");
+        info::error("Unspecified name or value");
         return EINVAL;
       }
       create_variable(args[i + 1], args[i + 2]);
+      return 0;
+    }
+
+    if(args[i] == "-t" || args[i] == "--temp") {
+      if(!(i + 1 < args.size() && i + 2 < args.size())) {
+        info::error("Unspecified name or value");
+        return EINVAL;
+      }
+      create_temp_var(args[i + 1], args[i + 2]);
       return 0;
     }
 
@@ -176,7 +175,7 @@ int var(std::vector<std::string> args) {
       if(i + 1 < args.size()) {
         auto name = get_value(args[i + 1]);
         if(std::holds_alternative<std::string>(name)) {
-          io::print(std::get<std::string>(name));
+          io::print(std::get<std::string>(name) + "\n");
           return 0;
         } else {
           info::error("Could not get variable " + args[i + 1]);

@@ -9,6 +9,13 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include "../cmd_highlighter.h"
+
+std::vector<Alias> temp_aliases;
+
+void create_temp_alias(std::string cmd, std::string value) {
+  temp_aliases.push_back({cmd, value});
+};
 
 void list_aliases() {
   std::string home = getenv("HOME");
@@ -36,13 +43,29 @@ void list_aliases() {
     if(a.length() > longest_alias_length) longest_alias_length = a.length();
   }
 
-  for(int i = 0; i < aliases.size(); i++) {
-    std::vector<std::string> value = io::split(aliases[i], " = ");
-    if(value.size() != 2) {
-      continue; // Invalid alias format
+  for(auto& a : temp_aliases) {
+    if(a.alias.length() > longest_alias_length) longest_alias_length = a.alias.length();
+  }
+
+  if(!temp_aliases.empty()) {
+    io::print(magenta + bold + "Temporary Aliases\n" + reset);
+    for(auto& a : temp_aliases) {
+      a.alias.resize(longest_alias_length, ' ');
+      io::print("  " + yellow + a.alias + reset + " = " + highl(a.value) + "\n");
     }
-    value[0].resize(longest_alias_length, ' ');
-    io::print(yellow + value[0] + reset + " = " + value[1] + "\n");
+    io::print("\n");
+  }
+
+  if(!aliases.empty()) {
+    io::print(green + bold + "Saved Aliases\n" + reset);
+    for(int i = 0; i < aliases.size(); i++) {
+      std::vector<std::string> value = io::split(aliases[i], " = ");
+      if(value.size() != 2) {
+        continue; // Invalid alias format
+      }
+      value[0].resize(longest_alias_length, ' ');
+      io::print("  " + yellow + value[0] + reset + "= " + highl(value[1]) + "\n");
+    }
   }
 }
 
@@ -92,6 +115,13 @@ std::string get_alias(std::string name, bool print) {
   aliases.erase(std::remove_if(aliases.begin(), aliases.end(), [](std::string& a){
     return a == "\n" || a.starts_with("//");
   }), aliases.end());
+
+  for(auto& a : temp_aliases) {
+    if(a.alias == name) {
+      if(print) io::print(a.value + "\n");
+      return a.value;
+    }
+  }
 
   for(auto& a : aliases) {
     if(a.starts_with(name + " = ")) {
@@ -197,7 +227,8 @@ int alias(std::vector<std::string> args) {
         {"-d", "--delete", "Delete an alias"},
         {"-D", "--delete-all", "Delete all aliases"},
         {"-g", "--get", "Get an alias's value"},
-        {"-c", "--create", "Create an alias"}
+        {"-c", "--create", "Create an alias"},
+        {"-t", "--temp", "Create temporary alias. You can create them either right here or in .slashrc"}
       },
       {
         {"alias -c \"update\" \"sudo apt update && sudo apt upgrade\"", "Create an alias update to the second argument"},
@@ -214,11 +245,12 @@ int alias(std::vector<std::string> args) {
     "-d", "--delete",
     "-D", "--delete-all",
     "-g", "--get",
-    "-c", "--create"
+    "-c", "--create",
+    "-t", "--temp"
   };
 
   for(auto& arg : args) {
-    if(!io::vecContains(validArgs, arg) && !arg.starts_with('-')) {
+    if(!io::vecContains(validArgs, arg) && arg.starts_with('-')) {
       info::error(std::string("Invalid argument \"") + arg + "\"");
       return EINVAL;
     }
@@ -257,6 +289,15 @@ int alias(std::vector<std::string> args) {
         return -1;
       }
       create_alias(args[1], args[2]);
+      return 0;
+    }
+
+    if(arg == "-t" || arg == "--temp") {
+      if(args.size() < 3) {
+        info::error("No alias name or value provided");
+        return -1;
+      }
+      create_temp_alias(args[1], args[2]);
       return 0;
     }
   }
