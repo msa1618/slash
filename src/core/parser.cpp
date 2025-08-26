@@ -33,13 +33,21 @@ std::string unescape(const std::string& input) {
     return result;
 }
 std::string bracket_to_ansi(std::string content) {
-    io::replace_all(content, "(red)", red);
-    io::replace_all(content, "(green)", green);
-    io::replace_all(content, "(yellow)", yellow);
-    io::replace_all(content, "(blue)", blue);
-    io::replace_all(content, "(magenta)", magenta);
-    io::replace_all(content, "(cyan)", cyan);
-    io::replace_all(content, "(white)", white);
+    io::replace_all(content, "(red)", "\x1b[31m");
+    io::replace_all(content, "(green)", "\x1b[32m");
+    io::replace_all(content, "(yellow)", "\x1b[33m");
+    io::replace_all(content, "(blue)", "\x1b[34m");
+    io::replace_all(content, "(magenta)", "\x1b[35m");
+    io::replace_all(content, "(cyan)", "\x1b[36m");
+    io::replace_all(content, "(white)", "\x1b[37m");
+
+    io::replace_all(content, "(bred)", "\x1b[91m");
+    io::replace_all(content, "(bgreen)", "\x1b[92m");
+    io::replace_all(content, "(byellow)", "\x1b[93m");
+    io::replace_all(content, "(bblue)", "\x1b[94m");
+    io::replace_all(content, "(bmagenta)", "\x1b[95m");
+    io::replace_all(content, "(bcyan)", "\x1b[96m");
+    io::replace_all(content, "(bwhite)", "\x1b[97m");
 
     io::replace_all(content, "(bg_red)", "\x1b[41m");
     io::replace_all(content, "(bg_green)", "\x1b[42m");
@@ -49,16 +57,82 @@ std::string bracket_to_ansi(std::string content) {
     io::replace_all(content, "(bg_cyan)", "\x1b[46m");
     io::replace_all(content, "(bg_white)", "\x1b[47m");
 
-    io::replace_all(content, "(bold)", bold);
+    io::replace_all(content, "(bg_bred)", "\x1b[101m");
+    io::replace_all(content, "(bg_bgreen)", "\x1b[102m");
+    io::replace_all(content, "(bg_byellow)", "\x1b[103m");
+    io::replace_all(content, "(bg_bblue)", "\x1b[104m");
+    io::replace_all(content, "(bg_bmagenta)", "\x1b[105m");
+    io::replace_all(content, "(bg_bcyan)", "\x1b[106m");
+    io::replace_all(content, "(bg_bwhite)", "\x1b[107m");
+
+    io::replace_all(content, "(bold)", "\x1b[1m");
+    io::replace_all(content, "(dim)", "\x1b[2m");
     io::replace_all(content, "(italic)", "\x1b[3m");
     io::replace_all(content, "(underline)", "\x1b[4m");
+    io::replace_all(content, "(dunderline)", "\x1b[21m");
     io::replace_all(content, "(blink)", "\x1b[5m");
+    io::replace_all(content, "(reverse)", "\x1b[7m");
+    io::replace_all(content, "(conceal)", "\x1b[8m");
     io::replace_all(content, "(strikethrough)", "\x1b[9m");
+    io::replace_all(content, "(framed)", "\x1b[51m");
+    io::replace_all(content, "(encircled)", "\x1b[52m");
+    io::replace_all(content, "(overline)", "\x1b[53m");
 
-    io::replace_all(content, "(reset)", reset);
+    io::replace_all(content, "(reset)", "\x1b[0m");
 
-    return content;
+    boost::regex reg_256(R"(\(([0-9]+)\))");
+    content = boost::regex_replace(content, reg_256, "\x1b[38;5;$1m");
+
+    boost::regex reg_bg_256(R"(\(b([0-9]+)\))");
+    content = boost::regex_replace(content, reg_bg_256, "\x1b[48;5;$1m");
+
+    boost::regex reg_rgb(R"(\(rgb:([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})\))");
+    content = boost::regex_replace(content, reg_rgb, "\x1b[38;2;$1;$2;$3m");
+
+    boost::regex reg_bg_rgb(R"(\(brgb:([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})\))");
+    content = boost::regex_replace(content, reg_bg_rgb, "\x1b[48;2;$1;$2;$3m");
+
+    boost::regex reg_hex(R"(\(#([0-9A-Fa-f]{6})\))");
+    std::string result;
+    std::string::const_iterator start = content.begin();
+    std::string::const_iterator end = content.end();
+    boost::smatch match;
+
+    auto hex_to_rgb = [](const std::string& hex, bool bg) {
+        int r = std::stoi(hex.substr(0,2), nullptr, 16);
+        int g = std::stoi(hex.substr(2,2), nullptr, 16);
+        int b = std::stoi(hex.substr(4,2), nullptr, 16);
+
+        std::stringstream ss;
+        if(bg) ss << "\x1b[48;2;";
+        else ss << "\x1b[38;2;";
+        ss << r << ";" << g << ";" << b << "m";
+        return ss.str();
+    };
+
+    while(boost::regex_search(start, end, match, reg_hex)) {
+        result.append(start, match[0].first);
+        result.append(hex_to_rgb(match[1], false));
+        start = match[0].second;
+    }
+    result.append(start, end);
+    content = result;
+
+    boost::regex reg_bg_hex(R"(\(b#([0-9A-Fa-f]{6})\))");
+    result.clear();
+    start = content.begin();
+    end = content.end();
+
+    while(boost::regex_search(start, end, match, reg_bg_hex)) {
+        result.append(start, match[0].first);
+        result.append(hex_to_rgb(match[1], true));
+        start = match[0].second;
+    }
+    result.append(start, end);
+
+    return result;
 }
+
 
 std::string remove_comments_outside_quotes(const std::string& input) {
     bool in_single_quote = false;
