@@ -433,6 +433,7 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     if(parsed_args.size() > 1) {
       if(parsed_args[1] == "--slash-utils") return slash_utils_help();
       else if(parsed_args[1] == "--keys") return help_keys();
+      else if(parsed_args[1] == "--cquotes") return colored_quotes_help();
       else info::error("Invalid help argument.\n");
     }
     return help();
@@ -450,6 +451,18 @@ int execute(std::vector<std::string> parsed_args, std::string input, bool bg, Re
     if (parsed_args[0] == "cd") {
         parsed_args.erase(parsed_args.begin());
         return cd(parsed_args);
+    }
+
+    if(parsed_args[0] == "reload") {
+      if(parsed_args.size() > 1) {
+        if(parsed_args[1] == "-h" || parsed_args[1] == "--help") {
+          io::print(green + "\nFunction\n" + reset);
+          io::print("  Reload .slashrc\n\n");
+          return 0;
+        }
+      }
+      execute_startup_commands(); // reload .slashrc
+      return 0;
     }
 
     if(parsed_args[0] == "~" || parsed_args[0] == ".." || parsed_args[0] == "/") {
