@@ -134,11 +134,22 @@ std::string message(int sig, bool core_dumped) {
         {SIGHUP, cyan}, {SIGINT, yellow}, {SIGQUIT, red}, {SIGILL, red},
         {SIGTRAP, red}, {SIGABRT, red}, {SIGBUS, red}, {SIGFPE, red},
         {SIGKILL, red}, {SIGUSR1, yellow}, {SIGSEGV, red}, {SIGUSR2, yellow},
-        {SIGPIPE, cyan}, {SIGALRM, cyan}, {SIGTERM, yellow}, {SIGSTKFLT, red},
+        {SIGPIPE, cyan}, {SIGALRM, cyan}, {SIGTERM, yellow},
+    #ifdef SIGSTKFLT
+        {SIGSTKFLT, red},
+    #endif
         {SIGCHLD, cyan}, {SIGCONT, cyan}, {SIGSTOP, red}, {SIGTSTP, yellow},
         {SIGTTIN, cyan}, {SIGTTOU, cyan}, {SIGURG, cyan}, {SIGXCPU, red},
         {SIGXFSZ, red}, {SIGVTALRM, cyan}, {SIGPROF, cyan}, {SIGWINCH, cyan},
-        {SIGPOLL, cyan}, {SIGPWR, red}, {SIGSYS, red}
+    #ifdef SIGPOLL
+        {SIGPOLL, cyan},
+    #endif
+    #ifdef SIGPWR
+        {SIGPWR, red},
+    #endif
+    #ifdef SIGSYS
+        {SIGSYS, red}
+    #endif
     };
 
     const char* sig_name = strsignal(sig); // human-readable signal name
