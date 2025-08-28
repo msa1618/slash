@@ -74,6 +74,33 @@ class Del {
         return;
       }
 
+      if(std::filesystem::path(std::filesystem::canonical(dir_path)) == "/") {
+        io::print(yellow + "[WARNING] " + reset + "Deleting root will delete" + red + " YOUR ENTIRE SYSTEM, INCLUDING YOUR BOOTLOADER AND KERNEL FILES." + reset + " Type 'YES' fully to proceed: ");
+        
+        char c;
+        std::string buffer;
+        while(true) {
+          if(read(STDIN_FILENO, &c, 1) != 1) continue;
+
+          if(c == 127 || c == 8) {
+            buffer.pop_back();
+            io::print("\b \b");
+          }
+
+          if(isprint(c)) {
+            io::print(std::string(1, c));
+            buffer.push_back(c);
+          }
+
+          if(c == '\r' || c == '\n') {
+            io::print("\n");
+            break;
+          }
+        }
+
+        if(buffer != "YES") return;
+      }
+
       struct dirent* entry;
       while ((entry = readdir(dir)) != nullptr) {
         std::string name = entry->d_name;
