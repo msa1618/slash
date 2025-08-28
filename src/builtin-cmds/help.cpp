@@ -5,6 +5,53 @@ std::string osc_lnk(const std::string& url, const std::string& text) {
     return "\033]8;;" + url + "\033\\" + text + "\033]8;;\033\\";
 }
 
+int colored_quotes_help() {
+  std::vector<std::pair<std::string, std::string>> styles = {
+    {"(red)", "\x1b[31mThis is red text\x1b[0m"},
+    {"(green)", "\x1b[32mThis is green text\x1b[0m"},
+    {"(yellow)", "\x1b[33mThis is yellow text\x1b[0m"},
+    {"(blue)", "\x1b[34mThis is blue text\x1b[0m"},
+    {"(magenta)", "\x1b[35mThis is magenta text\x1b[0m"},
+    {"(cyan)", "\x1b[36mThis is cyan text\x1b[0m"},
+    {"(white)", "\x1b[37mThis is white text\x1b[0m"},
+    {"(bred)", "\x1b[91mThis is bright red text\x1b[0m"},
+    {"(bgreen)", "\x1b[92mThis is bright green text\x1b[0m"},
+    {"(byellow)", "\x1b[93mThis is bright yellow text\x1b[0m"},
+    {"(bblue)", "\x1b[94mThis is bright blue text\x1b[0m"},
+    {"(bmagenta)", "\x1b[95mThis is bright magenta text\x1b[0m"},
+    {"(bcyan)", "\x1b[96mThis is bright cyan text\x1b[0m"},
+    {"(bwhite)", "\x1b[97mThis is bright white text\x1b[0m"},
+    {"(bg_red)", "\x1b[41mThis has red background\x1b[0m"},
+    {"(bg_green)", "\x1b[42mThis has green background\x1b[0m"},
+    {"(bg_blue)", "\x1b[44mThis has blue background\x1b[0m"},
+    {"(bold)", "\x1b[1mThis is bold text\x1b[0m"},
+    {"(italic)", "\x1b[3mThis is italic text\x1b[0m"},
+    {"(underline)", "\x1b[4mThis is underlined text\x1b[0m"},
+    {"(blink)", "\x1b[5mThis is blinking text\x1b[0m"},
+    {"(reverse)", "\x1b[7mThis is reverse text\x1b[0m"},
+    {"(strikethrough)", "\x1b[9mThis is strikethrough text\x1b[0m"},
+    {"(framed)", "\x1b[51mThis is framed text\x1b[0m"},
+    {"(encircled)", "\x1b[52mThis is encircled text\x1b[0m"},
+    {"(overlined)", "\x1b[53mThis is overlined text\x1b[0m"},
+    {"(#AABBCC)", "Use this for hex coloring"},
+    {"(b#AABBCC)", "Use this for background hex coloring"},
+    {"(rgb:0,111,222)", "Use this for RGB coloring"},
+    {"(brgb:0,111,222)", "Use this for background RGB coloring"},
+    {"(0-255)", "Use this to use any color from the 256 palette"},
+    {"(b0-255)", "Same as above but for the background"},
+    {"(reset)", "Don't forget to reset after you're done coloring!"}
+  };
+
+  for(auto& style : styles) {
+    style.first.resize(20, ' ');
+    io::print(cyan + style.first + reset + "  " + style.second + "\n");
+  }
+
+  io::print("\nColoring and formatting can also be nested.\n");
+  io::print("e.g. (bold)Bold with (italic)italic text(reset) -> \x1b[1mBold with \x1b[3mitalic text\x1b[0m\n");
+  return 0;
+}
+
 int help() {
   std::stringstream ss;
 
@@ -51,8 +98,8 @@ int help() {
   ss << "  slash offers two special useful quotes\n";
   ss << "    • " << yellow << "E" << reset << green << "\"\"" << reset << ": All escape sequences and characters inside are escaped.\n";
   ss << "    • " << yellow << "@" << reset << green << "\"\"" << reset << ": Inside, you can add brackets with standard ANSI colors inside,\n";
-  ss << "           like (green), in addition to (gray) and (orange). You can also add\n";
-  ss << "           formatting options, like (bold), (blink), (italic), (overline)..\n";
+  ss << "      like (green), in addition to (gray) and (orange). Use " << highl("help --cquotes") << "\n";
+  ss << "      to get all styles\n";
 
   ss << green << "Do you:\n" << reset;
   ss << "  1. Want to report a bug: Open an issue at slash's GitHub repository: " << blue << osc_lnk("https://github.com/msa1618/slash/issues", blue + "msa1618/slash" + reset) << "\n";

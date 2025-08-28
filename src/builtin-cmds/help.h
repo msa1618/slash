@@ -6,6 +6,7 @@
 
 int help();
 int slash_utils_help();
+int colored_quotes_help();
 int help_keys();
 
 #endif // SLASH_HELP_H
