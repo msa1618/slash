@@ -11,7 +11,8 @@ enum class syntax {
 
 enum class runtime {
   syscall_failed,
-  file_access_failed
+  file_access_failed,
+  invalid_arguments
 };
 
 std::string error_to_str(std::variant<syntax, runtime> error);

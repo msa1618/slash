@@ -36,6 +36,9 @@ namespace AST {
     std::vector<Word*> arguments;
 
     virtual ~Node() = default;
+    virtual std::string name() { return "Node"; }
+
+    bool uses_sh_style{}; // has a meaning in some nodes, like using then/fi/do/done instead of { ... }/( ... )
 
     template <typename T> 
     bool is() const { 

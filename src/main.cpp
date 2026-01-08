@@ -3,16 +3,25 @@
 #include <parser/lexer.h>
 #include <parser/parser.h>
 #include <interpreter/interpreter.h>
+#include <prompt/prompt.h>
 #include <parser/word.h>
 #include <session.h>
+#include <csignal>
+#include <global.h>
 
 int main() {
-  Interpreter interpreter;
   Session::interactive = true;
   int i_errors = 0;
 
+  signal(SIGINT,  SIG_IGN);
+  signal(SIGTSTP, SIG_IGN);
+  signal(SIGTTIN, SIG_IGN);
+  signal(SIGTTOU, SIG_IGN); 
+  signal(SIGQUIT, SIG_IGN);
+  signal(SIGCHLD, SIG_IGN);
+
   while(true) {
-    Sead sead(geteuid() == 0 ? "# " : "$ ");
+    Sead sead(Prompt::parse_ps(Prompt::get_ps<1>()));
     std::string input = sead.readln();
 
     if(input == "exit") break;
@@ -31,13 +40,16 @@ int main() {
       for(auto& s : parser.diags()) s.dump();
     }
     catch(Diagnostic& d) { d.dump(); continue; }
-    
-    interpreter.execute(block);
-    if(interpreter.error_count() > i_errors) {
-      i_errors = interpreter.error_count();
-      for(int i = i_errors; i < interpreter.diags().size(); i++) {
-        interpreter.diags()[i].dump();
+
+    Global::interpreter.i_statement(block);
+
+    if(Global::interpreter.error_count() > i_errors) {
+      io::debug("true");
+
+      for(int i = i_errors; i < Global::interpreter.diags().size(); i++) {
+        Global::interpreter.diags()[i].dump();
       }
+      i_errors = Global::interpreter.error_count();
     }
   }
 

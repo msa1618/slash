@@ -21,16 +21,19 @@ std::string Sead::readln() {
     }
     if(c == '\b' || c == 127) {
       if(char_pos > 0 && !buffer.empty()) { 
-        buffer.pop_back();
+        buffer.erase(buffer.begin() + (char_pos - 1));
         char_pos--;
-        io::print("\b \b");
+
+        io::print("\r\x1b[2K");
+        io::print(prompt + buffer);
       }
     }
 
     if(isprint(c)) {
-      buffer += c;
+      buffer.insert(buffer.begin() + char_pos, c);
       char_pos++;
-      io::print(c);
+      io::print("\r\x1b[2K");
+      io::print(prompt + buffer);
     }
   }
 

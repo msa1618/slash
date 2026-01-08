@@ -7,22 +7,42 @@
 #include "ast.h"
 
 namespace AST {
+  class Word;
   struct Node;
-
+  
   struct NodeVariable : Node {
     std::string name;
   };
+  struct NodeSubstitution : Node {
+    NodeBlock* body;
+  };
+  struct NodeEscaped : Node { std::string what; };
+  struct NodeString : Node {
+    enum class Modifier {
+      None,
+      ANSI_C,
+      Colored,
+      Both
+    };
 
+    Modifier modifier = Modifier::None;
+    std::vector<Word*> content;
+    bool singular;
+  };
+ 
   class Word {
     private:
       class Element {
         private:
-          std::variant<std::string, NodeVariable*> value;
+          std::variant<std::string, NodeVariable*, NodeSubstitution*, NodeString*, NodeEscaped*> value;
 
         public:
           Element(std::string str) : value(str) {}
           Element(NodeVariable* node) : value(node) {}
-
+          Element(NodeSubstitution* node) : value(node) {}
+          Element(NodeString* node) : value(node) {};
+          Element(NodeEscaped* node) : value(node) {};
+ 
           template <typename T>
           bool is() { return std::holds_alternative<T>(value); }
 
@@ -30,12 +50,14 @@ namespace AST {
           T as() { return std::get<T>(value); }
       };
 
-      std::vector<Element> word;
+      std::vector<Element> word{};
 
     public:
+      Word(std::string str) { word.push_back(str); }
+      Word() = default;
+
       decltype(word) array();
       void push(Element element);
-      void push(std::string str);
   };
 }
 

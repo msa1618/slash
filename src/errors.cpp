@@ -54,6 +54,7 @@ std::string error_to_str(std::variant<syntax, runtime> error) {
       switch (e) {
         case runtime::syscall_failed:     return "runtime::syscall_failed";
         case runtime::file_access_failed: return "runtime::file_access_failed";
+        case runtime::invalid_arguments:  return "runtime::invalid_arguments";
       }
     }
     return "unknown_error";

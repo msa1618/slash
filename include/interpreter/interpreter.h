@@ -3,9 +3,13 @@
 
 #include <string>
 #include <vector>
+#include <optional>
 #include <parser/parser.h>
 #include <parser/nodes.h>
+#include <parser/word.h>
 #include <unordered_map>
+#include <unistd.h>
+#include <session.h>
 
 class Scope {
   private:
@@ -13,7 +17,12 @@ class Scope {
 
   public:
     bool has(std::string variable) { return variables.find(variable) != variables.end(); }
-    std::string get(std::string variable) { return variables[variable]; }
+    std::string get(std::string variable) {
+      if(variable == "?") return std::to_string(Session::last_exit);
+      if(variable == "$") return std::to_string(getpid());
+
+      return variables[variable];
+    }
     void set(std::string variable, std::string value) { variables[variable] = value; }
 };
 
@@ -22,18 +31,41 @@ class Interpreter {
     AST::NodeBlock* block;
     Scope scope;
 
-    int count = 0;
+    int count{};
     std::vector<Diagnostic> diagnostics;
 
-    struct Status {
-      int exit = 0;
+    enum class Signal { None, Break, Continue };
 
-      Status(int exit) : exit(exit) {}
+    struct Status {
+      int exit = -1;
+      Signal signal = Signal::None;
+
+      Status(int exit, Signal sig = Signal::None) : exit(exit), signal(sig) {}
     };
 
-    std::string expand(AST::Word* word);
+    std::string i_substitution(AST::NodeSubstitution* node);
+
+    Status i_block(AST::NodeBlock* node);
+
     Status i_command(AST::NodeCommand* node);
     Status i_exit(AST::NodeExit* node);
+    Status i_loop(AST::NodeLoop* node);
+    Status i_connector(AST::NodeConnector* node);
+
+    Status i_if(AST::NodeIf* node);
+    Status i_while(AST::NodeWhile* node);
+    
+    Status execute(AST::Node* node);
+
+    // Builtins
+    bool is_builtin(std::string cmd);
+    Status i_builtin(std::string cmd, int argc, char* argv[]);
+
+    Status i_cd(int argc, char* argv[]);
+    Status i_read(int argc, char* argv[]);
+    Status i_fc(int argc, char* argv[]);
+    Status i_noop();
+
 
     int to_int(std::string str);
 
@@ -41,7 +73,10 @@ class Interpreter {
     Interpreter(AST::NodeBlock* block) : block(block) {}
     Interpreter() {}
 
-    void execute(AST::Node* node);
+    Status i_statement(AST::Node* node);
+    std::string expand(AST::Word* word);
+    Scope get_scope();
+
     void error(runtime run, std::string msg);
     int error_count();
     decltype(diagnostics) diags();

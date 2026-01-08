@@ -11,6 +11,10 @@ add_executable(slash
   src/interpreter/commands.cpp
   src/interpreter/expander.cpp
   src/interpreter/interpreter.cpp
+  src/interpreter/condloop.cpp
+  src/interpreter/builtins.cpp
+  src/prompt/prompt.cpp
+  src/global.cpp
   src/parser/lexer.cpp
   src/parser/parser.cpp
   src/parser/word.cpp

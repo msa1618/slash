@@ -2,6 +2,9 @@
 
 namespace AST {
   struct NodeVariableDeclaration : Node {
-    std::string name;
+    std::string variable;
+    
+
+    std::string name() override { return "NodeVariableDeclaration"; }
   };
 }

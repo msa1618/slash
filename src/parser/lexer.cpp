@@ -70,16 +70,20 @@ bool is_integer(std::string str) {
   if(str.empty()) return false;
 
   if(str.starts_with("0x") || str.starts_with("0X")) {
+    bool is_empty = true;
     for(auto& c : str.substr(2)) {
       if(!isxdigit(c)) return false;
+      is_empty = false;
     }
-    return true;
+    return !is_empty;
   }
   if(str.starts_with("0b") || str.starts_with("0B")) {
+    bool is_empty = true;
     for(auto& c : str.substr(2)) {
       if(c != '0' && c != '1') return false;
+      is_empty = false;
     }
-    return true;
+    return !is_empty;
   }
   if(str.starts_with("0")) {
     for(auto& c : str.substr(1)) {
@@ -106,6 +110,8 @@ bool is_float(std::string str) {
 
       if(i == 0) return false;
       if(i == str.size() - 1) return false;
+
+      continue;
     }
     if(!isdigit(c)) return false;
   }
@@ -169,6 +175,7 @@ void Lexer::begin() {
 
   for(int i = 0; i < block.size(); i++) {
     char c = block[i];
+    char next = i + 1 < block.size() ? block[i + 1] : 0;
 
     if(c == '#') {
       while(i < block.size() && block[i] != '\n') {
@@ -177,22 +184,40 @@ void Lexer::begin() {
       continue;
     }
 
-    if(isspace(c)) {
-      handle_word();
-
-      result.push_back(Token(TokType::WORD_SEPARATOR, ""));
-
-      bool started = false;
-      while(i + 1 < block.size() && isspace(block[i + 1]) && block[i + 1] != '\n' && block[i + 1] != ';') {
-        started = true;
-        i++;
-      }
-
+    if(c == '"' || c == '\'') {
+      result.push_back(Token(TokType::QUOTE, std::string(1, c)));
       continue;
     }
 
+    if(c == '\\') {
+      if(next) result.push_back(Token(TokType::ESCAPED, std::string(1, next)));
+      i++;
+      continue;
+    }
+
+    
     if(c == ';' || c == '\n') {
+      handle_word();
       result.push_back(Token(TokType::STATEMENT_SEPARATOR, {c}));
+      continue;
+    }
+
+    if(isspace(c)) {
+      handle_word();
+
+      std::string lexeme;
+      lexeme += c;
+
+      i++;
+
+      while(i < block.size() && isspace(block[i]) && block[i] != '\n') {
+        lexeme += block[i];
+        i++;
+      }
+      i--;
+
+      result.push_back(Token(TokType::WORD_SEPARATOR, lexeme));
+
       continue;
     }
     

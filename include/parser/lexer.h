@@ -5,12 +5,14 @@
 #include <vector>
 
 enum class TokType {
+  NONE,
   KEYWORD,
   OPERATOR,
   PUNCTUATION,
   REDIRECTOR,
   QUOTE,
   COMMENT,
+  ESCAPED,
   RAW,
   INTEGER,
   FLOAT,
@@ -31,6 +33,7 @@ struct Token {
   bool check(TokType type, std::string lexeme) {
     return this->type == type && this->lexeme == lexeme;
   }
+  bool operator==(Token tok) { return tok.type == type && tok.lexeme == lexeme; }
 };
 
 class Lexer {
