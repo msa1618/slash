@@ -5,6 +5,36 @@
 #include <interpreter/interpreter.h>
 #include <cstring>
 #include <session.h>
+#include <fstream>
+
+// the type is to get the boolean, and if true, get the command in the shebang at the same time
+// if .second is empty, execute script in slash
+std::pair<bool, std::string> Interpreter::is_script(std::string file) {
+  if(!file.contains("/")) { return {false, ""}; }
+
+  std::ifstream f(file, std::ios::binary);
+  if(!f.is_open()) {
+    error(runtime::file_access_failed, "failed to open " + file + ": " + strerror(errno));
+    return {errno, ""};
+  }
+
+  char buffer[4];
+  f.read(buffer, 4);
+
+  if(buffer[0] == '\x1f' && buffer[1] == 'E' && buffer[2] == 'L' && buffer[3] == 'F')
+    return {false, ""};
+
+  f.seekg(0); // reset pointer to 0 after reading 4 chars 
+
+  // for the shebang
+  std::string line;
+  while(std::getline(f, line)) {
+    if(line.empty()) continue;
+    if(line.starts_with("#!")) return {true, line.substr(2)};
+
+    return {true, ""};
+  }
+}
 
 Interpreter::Status Interpreter::i_command(AST::NodeCommand* node) {
   // get program name and argv
@@ -19,7 +49,7 @@ Interpreter::Status Interpreter::i_command(AST::NodeCommand* node) {
   std::vector<char*> args;
   args.reserve(arg_strings.size() + 1);
   for (auto& s : arg_strings)
-      args.push_back(s.data());
+      args.push_back(const_cast<char*>(s.c_str()));
   args.push_back(nullptr);
   ////////////////////////////
 
@@ -33,22 +63,35 @@ Interpreter::Status Interpreter::i_command(AST::NodeCommand* node) {
     error(runtime::syscall_failed, "failed to fork process: " + std::string(strerror(errno)));
     return Status(errno);
   }
+
+  int child_status = 0;
   if (pid == 0) {
       execvp(args[0], args.data());
     
-      error(runtime::syscall_failed, "failed to execute " + std::string(args[0]) + ": " + strerror(errno));
+      child_status = errno;
       _exit(errno);
+  }
+  if(child_status != 0) {
+    error(runtime::syscall_failed, "failed to execute " + std::string(args[0]) + ": " + strerror(errno));
+    return child_status;
   }
 
   int status;
-  waitpid(pid, &status, 0);
+  pid_t w = waitpid(pid, &status, 0);
+  if(w == -1) {
+    if(errno != ECHILD) {
+      error(runtime::syscall_failed, "waitpid failed: " + std::string(strerror(errno)));
+      return -1;
+    }
+  }
 
-  int exit = 0;
-  if(WIFEXITED(status)) exit = WEXITSTATUS(status);
-  if(WIFSIGNALED(status)) exit = WTERMSIG(status);
+  int exit_code;
+  if(WIFEXITED(status)) exit_code = WEXITSTATUS(status);
+  else if(WIFSIGNALED(status)) exit_code = 128 + WTERMSIG(status);
+  else exit_code = -1;
 
-  Session::last_exit = exit;
-  return Status(exit);
+  Session::last_exit = exit_code;
+  return Status(exit_code);
 }
 Interpreter::Status Interpreter::i_exit(AST::NodeExit* node) {
   int exit = Session::last_exit;

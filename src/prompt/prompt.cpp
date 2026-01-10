@@ -170,4 +170,4 @@ std::string Prompt::parse_ps(std::string value) {
   }
 
   return result;
-}
+} 

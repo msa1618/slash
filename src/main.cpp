@@ -27,13 +27,21 @@ int main() {
     if(input == "exit") break;
     if(input.empty()) continue;
 
-    Lexer lexer(input + "\n");
-    lexer.dump();
+    std::vector<Token> tokens;
+
+    try {
+      Lexer lexer(input + "\n");
+      //lexer.dump();
+      tokens = lexer.tokens();
+    } catch(Diagnostic& d) {
+      d.dump();
+      continue;
+    }
 
     AST::NodeBlock* block = new AST::NodeBlock();
 
     try {
-      Parser parser(lexer);
+      Parser parser(tokens);
       parser.parse();
       block = parser.block();
 
@@ -44,8 +52,6 @@ int main() {
     Global::interpreter.i_statement(block);
 
     if(Global::interpreter.error_count() > i_errors) {
-      io::debug("true");
-
       for(int i = i_errors; i < Global::interpreter.diags().size(); i++) {
         Global::interpreter.diags()[i].dump();
       }

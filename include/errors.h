@@ -4,6 +4,11 @@
 #include <string>
 #include <variant>
 
+// lexer will only throw if a \ continuation is at EOF
+enum class lexer {
+  unexpected_eof
+};
+
 enum class syntax {
   unexpected_token,
   unexpected_eof
@@ -15,7 +20,7 @@ enum class runtime {
   invalid_arguments
 };
 
-std::string error_to_str(std::variant<syntax, runtime> error);
+std::string error_to_str(std::variant<syntax, runtime, lexer> error);
 
 enum class Severity { Suggestion, Warning, Error };
 
@@ -25,13 +30,14 @@ class Diagnostic {
 private:
   std::string _message;
   Severity _severity{};
-  std::variant<syntax, runtime> _error;
+  std::variant<syntax, runtime, lexer> _error;
 
 public:
   Diagnostic(std::string msg);
   Diagnostic(Severity sev, std::string msg);
   Diagnostic(syntax syn, std::string msg);
   Diagnostic(runtime run, std::string msg);
+  Diagnostic(lexer lex, std::string msg);
 
   std::string message();
   void dump();

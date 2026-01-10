@@ -1,24 +1,14 @@
 #include <iofuncs.h>
 #include <cstring>
+#include <regex>
 
 namespace io {
-  void print(std::string str) {
-    write(STDOUT_FILENO, str.c_str(), str.length());
-  }
-  void print(char c) {
-    write(STDOUT_FILENO, &c, 1);
-  }
-  void println(std::string str)
-  {
-    print(str + "\n");
-  }
-  void error(std::string str) {
-    write(STDERR_FILENO, str.c_str(), str.size());
-  }
   void perror(std::string str) {
-    error(str + ": " + std::string(strerror(errno)) + "\n");
+    io::error("%s: %s\n", str, strerror(errno)); 
   }
-  void debug(std::string str) {
-    error(cl::cyan + "debug: " + cl::reset + str + "\n");
+
+  std::string strip_ansi(std::string& text) {
+    std::regex ansi_regex("\x1B\\[[0-?]*[ -/]*[@-~]");
+    return std::regex_replace(text, ansi_regex, "");
   }
 }

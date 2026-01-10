@@ -37,7 +37,7 @@ class Interpreter {
     enum class Signal { None, Break, Continue };
 
     struct Status {
-      int exit = -1;
+      int exit = 0;
       Signal signal = Signal::None;
 
       Status(int exit, Signal sig = Signal::None) : exit(exit), signal(sig) {}
@@ -46,6 +46,8 @@ class Interpreter {
     std::string i_substitution(AST::NodeSubstitution* node);
 
     Status i_block(AST::NodeBlock* node);
+    std::pair<bool, std::string> is_script(std::string file);
+    
 
     Status i_command(AST::NodeCommand* node);
     Status i_exit(AST::NodeExit* node);
@@ -54,6 +56,8 @@ class Interpreter {
 
     Status i_if(AST::NodeIf* node);
     Status i_while(AST::NodeWhile* node);
+
+    Status i_vardecl(AST::NodeVariableDeclaration* node);
     
     Status execute(AST::Node* node);
 

@@ -21,9 +21,6 @@ std::string Interpreter::expand(AST::Word* word) {
       if(scope.has(name)) str += scope.get(name);
       else str += getenv(name.c_str()) ? getenv(name.c_str()) : "";
     }
-
-    if(e.is<AST::NodeEscaped*>()) str += e.as<AST::NodeEscaped*>()->what;
-
     if(e.is<AST::NodeSubstitution*>()) str += i_substitution(e.as<AST::NodeSubstitution*>());
     if(e.is<AST::NodeString*>()) {
       AST::NodeString* node = e.as<AST::NodeString*>();
@@ -34,6 +31,7 @@ std::string Interpreter::expand(AST::Word* word) {
 
       str += content;
     }
+    if(e.is<AST::NodeEscaped*>()) str += e.as<AST::NodeEscaped*>()->what;
   }
   
   return str;

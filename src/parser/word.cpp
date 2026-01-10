@@ -14,6 +14,8 @@ void AST::Word::push(Element element) { word.push_back(element); }
 
     AST::Word* word = new AST::Word();
     while(!at_eof()) {
+      io::debug(current().str().c_str());
+
       if(current().type == TokType::WORD_SEPARATOR || current().type == TokType::STATEMENT_SEPARATOR) {
         if(ignore_ws) { word->push(current().lexeme); advance(); continue; }
 
@@ -90,6 +92,7 @@ void AST::Word::push(Element element) { word.push_back(element); }
         AST::NodeSubstitution* node = new AST::NodeSubstitution();
         node->body = block_parser(until(DepthInfo(DepthInfo::Parentheses)));
 
+        advance();
         word->push(node);
         continue;
       }

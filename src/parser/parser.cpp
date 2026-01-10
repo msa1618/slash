@@ -3,29 +3,32 @@
 #include <parser/parser.h>
 #include <parser/word.h>
 #include <prompt/sead.h>
+#include <prompt/prompt.h>
 #include <unordered_map>
 #include <session.h>
 #include <functional>
 #include <iofuncs.h>
 
 Token Parser::consume(TokType type, std::string lexeme, bool ws_matters) {
-  Token next = peek(1, ws_matters);
-  if(next.type != type) {
-    if(!lexeme.empty() && next.lexeme != lexeme)
-      error(syntax::unexpected_token,
-      "unexpected " + toktype_to_str(next.type) + " '" + next.lexeme + "', " + 
+  if (!ws_matters)
+    while (current().type == TokType::WORD_SEPARATOR)
+      advance();
+
+  Token cur = current();
+
+  if (cur.type != type || (!lexeme.empty() && cur.lexeme != lexeme)) {
+    error(syntax::unexpected_token,
+      "unexpected " + toktype_to_str(cur.type) + " '" + cur.lexeme + "', " +
       "expected " + toktype_to_str(type) + " '" + lexeme + "'");
   }
 
   advance();
-  return next;
+  return cur;
 }
 
 std::vector<Token> Parser::until(DepthInfo info) {
   int depth = 0;
   std::vector<Token> result;
-
-  io::debug("started until(info)");
 
   while(true) {
     if(at_eof()) handle_eof();
@@ -36,8 +39,8 @@ std::vector<Token> Parser::until(DepthInfo info) {
     }
     for(auto& d : info.decreasers) {
       if(cur == d) {
-        if(depth == 0) { advance(); return result; }
         depth--;
+        if(depth == 0 || depth < 0) { return result; }
         break;
       }
     }
@@ -46,12 +49,10 @@ std::vector<Token> Parser::until(DepthInfo info) {
     advance();
   }
 
-  io::debug("ended until info");
   return result;
 }
 
 std::vector<Token> Parser::until(std::function<bool(Token)> function) {
-  io::debug("started until(func)");
   std::vector<Token> result;
   while(true) {
     if(at_eof()) handle_eof();
@@ -61,12 +62,10 @@ std::vector<Token> Parser::until(std::function<bool(Token)> function) {
     advance();
   }
 
-  io::debug("stopped until(func)");
   return result;
 }
 
 std::vector<Token> Parser::until(TokType type, std::string lexeme) {
-  io::debug("started until(normal)");
     std::vector<Token> result;
 
     while (true) {
@@ -81,7 +80,6 @@ std::vector<Token> Parser::until(TokType type, std::string lexeme) {
         advance();
     }
 
-    io::debug("ended until(normal)");
     return result;
 }
 Token Parser::peek(int n, bool ws_matters)
@@ -126,8 +124,18 @@ bool Parser::at_eof() {
 }
 
 bool Parser::handle_eof() {
-    error(syntax::unexpected_eof, "unexpected end of file while parsing");
-    return true;
+  if(Session::interactive) {
+    Sead sead(Prompt::parse_ps(Prompt::get_ps<2>()));
+    std::string line = sead.readln();
+
+    Lexer lexer(line);
+    for(auto& e : lexer.tokens()) tokens.push_back(e);
+
+    return false;
+  }
+
+  error(syntax::unexpected_eof, "unexpected end of file while parsing");
+  return true;
 
   //Lexer lexer(Sead("> ").readln());
   //for(auto& t : lexer.tokens()) tokens.emplace_back(t);
@@ -254,7 +262,13 @@ AST::Node* Parser::after_parser(AST::Node *node, bool expects_arguments) {
   return node;
 }
 
-AST::NodeCommand* Parser::command_parser() {
+AST::Node *Parser::raw_parser() {
+  if(peek().check(TokType::PUNCTUATION, "=")) return vardec_parser();
+  return command_parser();
+}
+
+AST::NodeCommand *Parser::command_parser()
+{
   AST::NodeCommand* node = new AST::NodeCommand();
   node->program = word_parser();
 
@@ -289,14 +303,17 @@ AST::NodeLoop *Parser::loop_parser()
   node->body->statements = 
     block_parser(until(DepthInfo(node->body->subshell ? DepthInfo::Parentheses : DepthInfo::Brackets)))->statements;
 
+  advance();
+
   return node;
 }
 
 AST::NodeLoopControl *Parser::control_parser() {
   AST::NodeLoopControl* node = new AST::NodeLoopControl();
   node->is_break = current().check(TokType::KEYWORD, "break");
+  advance();
 
-  if(peek().type == TokType::INTEGER) { node->n = peek().lexeme; advance(); }
+  if(current().type == TokType::INTEGER) { node->n = current().lexeme; advance(); }
   return node;
 }
 
@@ -317,8 +334,11 @@ AST::NodeIf *Parser::if_parser() {
     info.decreasers = {Token(TokType::KEYWORD, "fi")};
     info.increasers = {Token(TokType::KEYWORD, "then")};
 
+    advance();
+
     node->primary.body->statements = block_parser(until(info))->statements;
   } else {
+    advance();
     node->primary.body->statements = 
       block_parser(until(DepthInfo(node->primary.body->subshell ? DepthInfo::Parentheses : DepthInfo::Brackets)))->statements;
   }
@@ -339,6 +359,8 @@ AST::NodeWhile* Parser::while_until_parser() {
   node->body = new AST::NodeBlock();
   node->body->subshell = current().lexeme == "(";  
   node->uses_sh_style = current().lexeme == "do";
+
+  advance();
   
   if(node->uses_sh_style) {
     DepthInfo info;
@@ -366,6 +388,8 @@ AST::Node *Parser::statement_parser()
     {"if",       [this]() { return if_parser(); }},
     {"while",    [this]() { return while_until_parser(); }},
     {"until",    [this]() { return while_until_parser(); }},
+    {"readonly", [this]() { return vardec_parser(); }},
+    {"const",    [this]() { return vardec_parser(); }},
     {"{",        [this]() { return block_subshell_parser(); }},
     {"(",        [this]() { return block_subshell_parser(); }},
   };
@@ -377,7 +401,12 @@ AST::Node *Parser::statement_parser()
 
     if(map.find(t.lexeme) != map.end()) {
        return after_parser(map[t.lexeme]());
-    } else return after_parser(command_parser(), true);
+    }
+    else {
+      auto node = raw_parser();
+      if(node->is<AST::NodeCommand>()) return after_parser(node, true);
+      return after_parser(node);
+    }
 
     break;
   }
@@ -388,5 +417,19 @@ AST::NodeBlock *Parser::block_subshell_parser() {
   advance();
 
   node->statements = block_parser(until(DepthInfo(node->subshell ? DepthInfo::Parentheses : DepthInfo::Brackets)))->statements;
+  return node;
+}
+AST::NodeVariableDeclaration *Parser::vardec_parser() {
+  AST::NodeVariableDeclaration* node = new AST::NodeVariableDeclaration();
+
+  if(current().check(TokType::KEYWORD, "const") || current().check(TokType::KEYWORD, "readonly")) {
+    node->is_const = true;
+    advance();
+  }
+
+  node->variable = current().lexeme;
+  consume(TokType::PUNCTUATION, "=");
+  node->value = word_parser();
+
   return node;
 }

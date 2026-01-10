@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <iofuncs.h>
 
 enum class TokType {
   NONE,
@@ -32,6 +33,10 @@ struct Token {
 
   bool check(TokType type, std::string lexeme) {
     return this->type == type && this->lexeme == lexeme;
+  }
+  std::string str() { 
+    return cl::yellow + toktype_to_str(type) + cl::reset +
+           "(" + cl::green + lexeme + cl::reset + ")";
   }
   bool operator==(Token tok) { return tok.type == type && tok.lexeme == lexeme; }
 };

@@ -2,6 +2,10 @@
 #include <unordered_set>
 #include <iofuncs.h>
 #include <parser/lexer.h>
+#include <errors.h>
+#include <session.h>
+#include <prompt/prompt.h>
+#include <prompt/sead.h>
 
 std::unordered_set<std::string> keywords() {
   static std::unordered_set<std::string> keywords = {
@@ -190,7 +194,19 @@ void Lexer::begin() {
     }
 
     if(c == '\\') {
-      if(next) result.push_back(Token(TokType::ESCAPED, std::string(1, next)));
+      if(next != 0) {
+        if(next == '\n') {
+          i++;
+          continue;
+        }
+        result.push_back(Token(TokType::ESCAPED, std::string(1, next)));
+      }
+      else {
+        if(!Session::interactive) throw Diagnostic(lexer::unexpected_eof, "unexpected eof at \\ line continuation");
+
+        Sead sead(Prompt::parse_ps(Prompt::get_ps<2>()));
+        block += "\n" + sead.readln();
+      }
       i++;
       continue;
     }
@@ -235,8 +251,7 @@ decltype(Lexer::result) Lexer::tokens() {
 
 void Lexer::dump() {
   for(auto& t : tokens()) {
-      io::println(cl::yellow + toktype_to_str(t.type) + cl::reset +
-                  "(" + cl::green + t.lexeme + cl::reset + ")");
+    io::println("%s", t.str());
   }
 }
 std::string toktype_to_str(TokType type) {

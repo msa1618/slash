@@ -21,6 +21,9 @@ Diagnostic::Diagnostic(syntax syn, std::string msg)
 Diagnostic::Diagnostic(runtime run, std::string msg)
   : _message(msg), _severity(Severity::Error), _error(run) {}
 
+Diagnostic::Diagnostic(lexer lex, std::string msg)
+  : _message(msg), _severity(Severity::Error), _error(lex) {}
+
 std::string Diagnostic::message() {
   return _message;
 }
@@ -36,14 +39,14 @@ void Diagnostic::dump() {
   ss << ": ";
   ss << message() << "\n";
 
-  io::error(ss.str());
+  io::error(ss.str().c_str());
 }
 
 Severity Diagnostic::severity() {
   return _severity;
 }
 
-std::string error_to_str(std::variant<syntax, runtime> error) {
+std::string error_to_str(std::variant<syntax, runtime, lexer> error) {
   return std::visit([](auto e) -> std::string {
     if constexpr (std::is_same_v<decltype(e), syntax>) {
       switch (e) {
@@ -55,6 +58,10 @@ std::string error_to_str(std::variant<syntax, runtime> error) {
         case runtime::syscall_failed:     return "runtime::syscall_failed";
         case runtime::file_access_failed: return "runtime::file_access_failed";
         case runtime::invalid_arguments:  return "runtime::invalid_arguments";
+      }
+    } else {
+      switch(e) {
+        case lexer::unexpected_eof: return "lexer::unexpected_eof";
       }
     }
     return "unknown_error";

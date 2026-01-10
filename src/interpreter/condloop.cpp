@@ -17,7 +17,7 @@ Interpreter::Status Interpreter::i_if(AST::NodeIf *node) {
 }
 
 Interpreter::Status Interpreter::i_while(AST::NodeWhile *node) {
-  while(node->is_until ? !i_statement(node->condition).exit : i_statement(node->condition).exit) {
+  while(node->is_until ? i_statement(node->condition).exit != 0 : i_statement(node->condition).exit == 0) {
     Status status = i_block(node->body);
     if(status.signal != Signal::None) return status;
   }

@@ -13,6 +13,7 @@ add_executable(slash
   src/interpreter/interpreter.cpp
   src/interpreter/condloop.cpp
   src/interpreter/builtins.cpp
+  src/history_manager.cpp
   src/prompt/prompt.cpp
   src/global.cpp
   src/parser/lexer.cpp

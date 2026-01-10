@@ -18,7 +18,7 @@ namespace Prompt {
     // defaults
     std::vector<std::string> ps_list = {
       R"([green]\u@\h[reset]:[blue]\w[reset] \$ )",
-      "[yellow]..[reset]",
+      "[yellow].. [reset]",
       "#? ",
       "+ "
     };

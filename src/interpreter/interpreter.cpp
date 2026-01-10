@@ -58,7 +58,9 @@ Interpreter::Status Interpreter::i_block(AST::NodeBlock *node) {
   return Status(0);
 }
 
-Interpreter::Status Interpreter::i_statement(AST::Node *node) {
+Interpreter::Status Interpreter::i_statement(AST::Node *node)
+{
+  /// Redirection stuff
     struct SavedFd {
         int original;
         int redirected;
@@ -135,6 +137,10 @@ Interpreter::Status Interpreter::i_statement(AST::Node *node) {
         close(fd);
     }
 
+  // end of redirection stuff
+    char** saved_environ = environ; 
+    if(node->execution.no_env) environ = { nullptr }; 
+
     Status status = execute(node);
 
     for(auto& e : savedfds) {
@@ -143,6 +149,10 @@ Interpreter::Status Interpreter::i_statement(AST::Node *node) {
         }
         close(e.original);
     }
+
+    if(node->execution.exit) io::error("%s%d%s\n", (status.exit == 0 ? cl::green : cl::red).c_str(), status.exit, (cl::reset).c_str());
+    if(status.exit != 0 && node->execution.repeat) return i_statement(node);
+    if(node->execution.no_env) environ = saved_environ;
 
     return status;
 }

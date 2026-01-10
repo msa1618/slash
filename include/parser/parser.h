@@ -46,6 +46,9 @@
 
       AST::Node* after_parser(AST::Node* node, bool expects_arguments = false);
 
+      // could be command, variable declaration, function decl, ...
+      AST::Node* raw_parser();
+
       AST::NodeCommand* command_parser();
       AST::NodeExit* exit_parser();
       AST::NodeBlock* block_parser(std::vector<Token> tokens);
@@ -54,6 +57,7 @@
       AST::Node* statement_parser();
 
       AST::NodeBlock* block_subshell_parser();
+      AST::NodeVariableDeclaration* vardec_parser();
 
       AST::NodeLoop* loop_parser();
       AST::NodeLoopControl* control_parser();
